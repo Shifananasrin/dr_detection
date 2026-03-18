@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}Analytics — RetinaAI{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2rem;" class="fade-in">
+    <div>
+        <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:.4rem;">📊 Platform Analytics</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--text-100);letter-spacing:-.025em;">Health Insights</div>
+        <p style="color:var(--text-400);font-size:.85rem;margin-top:.25rem;">Platform-wide retinal health data and trends</p>
+    </div>
+    {% if current_user and current_user.role == 'patient' %}
+    <a href="/scan/new" class="btn">🔬 New Scan</a>
+    {% elif current_user and current_user.role == 'doctor' %}
+    <a href="/doctor" class="btn btn-ghost">← Dashboard</a>
+    {% endif %}
+</div>
+
+<!-- Stat cards -->
+<div class="stat-grid fade-in delay-1">
+    <div class="stat-card">
+        <div class="stat-label">Total Scans</div>
+        <div class="stat-value" style="color:var(--cyan);">{{ data.total_scans | default(0) }}</div>
+        <div class="stat-sub">All records</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Total Patients</div>
+        <div class="stat-value">{{ data.total_patients | default(0) }}</div>
+        <div class="stat-sub">Registered users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Reviewed</div>
+        <div class="stat-value" style="color:var(--success);">{{ data.reviewed_scans | default(0) }}</div>
+        <div class="stat-sub">Doctor validated</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Avg Risk Score</div>
+        <div class="stat-value" style="color:var(--warning);">{{ data.avg_risk | default(0) | round(0) | int }}</div>
+        <div class="stat-sub">Platform average</div>
+    </div>
+</div>
+
+<!-- Charts -->
+<div class="grid-2 fade-in delay-2">
+    <div class="card">
+        <h2>📈 Monthly Scans</h2>
+        <div style="height:180px;position:relative;">
+            <canvas id="monthlyChart"></canvas>
+            <div id="monthlyEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-500);font-size:.82rem;">No scan data yet</div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>🎯 Grade Distribution</h2>
+        <div style="height:180px;position:relative;">
+            <canvas id="gradeChart"></canvas>
+            <div id="gradeEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-500);font-size:.82rem;">No grade data yet</div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>📉 Severity Trend</h2>
+        <div style="height:180px;position:relative;">
+            <canvas id="trendChart"></canvas>
+            <div id="trendEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-500);font-size:.82rem;">No trend data yet</div>
+        </div>
+    </div>
+    <div class="card">
+        <h2>🩺 Diabetes Types</h2>
+        <div style="height:180px;position:relative;">
+            <canvas id="diabChart"></canvas>
+            <div id="diabEmpty" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-500);font-size:.82rem;">No diabetes data yet</div>
+        </div>
+    </div>
+</div>
+
+{% if data.recent_scans %}
+<div class="card fade-in delay-3">
+    <h2>🕐 Recent Activity</h2>
+    <div style="overflow-x:auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>Scan #</th>
+                <th>Patient</th>
+                <th>Date</th>
+                <th>AI Diagnosis</th>
+                <th>Risk</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+        {% for scan in data.recent_scans[:10] %}
+        <tr style="cursor:pointer;" onclick="window.location='/scan/{{ scan.id }}'">
+            <td style="font-weight:800;color:var(--cyan);font-family:'JetBrains Mono',monospace;">#{{ scan.id }}</td>
+            <td style="color:var(--text-200);font-weight:600;">{{ scan.patient_name }}</td>
+            <td style="color:var(--text-400);font-size:.8rem;">{{ scan.uploaded_at[:10] if scan.uploaded_at else '—' }}</td>
+            <td>
+                {% if scan.ai_class_id is not none %}
+                <span class="badge badge-grade-{{ scan.ai_class_id }}">{{ scan.ai_class_name }}</span>
+                {% else %}—{% endif %}
+            </td>
+            <td style="font-weight:700;font-size:.82rem;color:
+                {%- if scan.risk_score is not none -%}
+                    {%- if scan.risk_score < 30 %}var(--success)
+                    {%- elif scan.risk_score < 60 %}var(--warning)
+                    {%- else %}var(--danger){% endif %}
+                {%- else %}var(--text-500){% endif %};">
+                {{ scan.risk_score if scan.risk_score is not none else '—' }}
+            </td>
+            <td><span class="status-badge status-{{ scan.status }}">{{ scan.status }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script>
+(function() {
+    // Embed chart data directly - no CDN dependency for data
+    var rawData = {{ chart_data | tojson }};
+    var CD;
+    try { CD = JSON.parse(rawData); } catch(e) { CD = {}; }
+
+    var GC = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'];
+    var TIP = {
+        backgroundColor:'#1a2440',titleColor:'#f0f4ff',
+        bodyColor:'#8a9bb8',borderColor:'rgba(255,255,255,0.1)',borderWidth:1
+    };
+
+    function safeParse(str) {
+        try { return JSON.parse(str || '[]'); } catch(e) { return []; }
+    }
+
+    function showEmpty(id) {
+        var el = document.getElementById(id + 'Empty');
+        var canvas = document.getElementById(id + 'Chart');
+        if (el) el.style.display = 'flex';
+        if (canvas) canvas.style.display = 'none';
+    }
+
+    // Only run charts if Chart.js loaded successfully
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js not loaded - showing empty states');
+        ['monthly','grade','trend','diab'].forEach(showEmpty);
+        return;
+    }
+
+    Chart.defaults.color = '#5a6e8a';
+    Chart.defaults.font.family = "'Outfit', sans-serif";
+
+    // Monthly scans
+    try {
+        var ms = safeParse(CD.monthly_scans);
+        if (ms.length > 0) {
+            new Chart(document.getElementById('monthlyChart'), {
+                type: 'bar',
+                data: {
+                    labels: ms.map(function(d){ return d.month; }),
+                    datasets: [{
+                        data: ms.map(function(d){ return d.cnt; }),
+                        backgroundColor: 'rgba(0,229,204,.2)',
+                        borderColor: '#00e5cc', borderWidth: 1.5, borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: TIP },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#5a6e8a' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        x: { ticks: { color: '#5a6e8a' }, grid: { display: false } }
+                    }
+                }
+            });
+        } else { showEmpty('monthly'); }
+    } catch(e) { showEmpty('monthly'); }
+
+    // Grade distribution
+    try {
+        var gd = safeParse(CD.grade_dist);
+        if (gd.length > 0) {
+            new Chart(document.getElementById('gradeChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: gd.map(function(g){ return g.label; }),
+                    datasets: [{
+                        data: gd.map(function(g){ return g.cnt; }),
+                        backgroundColor: GC.slice(0, gd.length).map(function(c){ return c + '44'; }),
+                        borderColor: GC.slice(0, gd.length), borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '65%',
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#8a9bb8', padding: 8, boxWidth: 10 } },
+                        tooltip: TIP
+                    }
+                }
+            });
+            document.getElementById('gradeEmpty').style.display = 'none';
+        } else { showEmpty('grade'); }
+    } catch(e) { showEmpty('grade'); }
+
+    // Severity trend
+    try {
+        var st = safeParse(CD.severity_trend);
+        if (st.length > 0) {
+            new Chart(document.getElementById('trendChart'), {
+                type: 'line',
+                data: {
+                    labels: st.map(function(d){ return d.month; }),
+                    datasets: [{
+                        data: st.map(function(d){ return d.avg; }),
+                        borderColor: '#f0a030', backgroundColor: 'rgba(240,160,48,.08)',
+                        pointBackgroundColor: '#f0a030', pointRadius: 4, fill: true, tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: TIP },
+                    scales: {
+                        y: {
+                            min: 0, max: 4,
+                            ticks: { stepSize: 1, callback: function(v){ return ['No DR','Mild','Mod','Sev','Prolif'][v] || v; }, color: '#5a6e8a' },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        x: { ticks: { color: '#5a6e8a' }, grid: { display: false } }
+                    }
+                }
+            });
+        } else { showEmpty('trend'); }
+    } catch(e) { showEmpty('trend'); }
+
+    // Diabetes distribution
+    try {
+        var dd = safeParse(CD.diabetes_dist);
+        if (dd.length > 0) {
+            new Chart(document.getElementById('diabChart'), {
+                type: 'pie',
+                data: {
+                    labels: dd.map(function(d){ return d.label; }),
+                    datasets: [{
+                        data: dd.map(function(d){ return d.cnt; }),
+                        backgroundColor: ['#00e5cc44','#4d9fff44','#f0a03044','#b060f044','#f0404044'],
+                        borderColor: ['#00e5cc','#4d9fff','#f0a030','#b060f0','#f04040'], borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#8a9bb8', boxWidth: 10 } },
+                        tooltip: TIP
+                    }
+                }
+            });
+            document.getElementById('diabEmpty').style.display = 'none';
+        } else { showEmpty('diab'); }
+    } catch(e) { showEmpty('diab'); }
+
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ code|default(404) }} — RetinaAI{% endblock %}
+{% block content %}
+<div style="min-height:calc(100vh - 200px);display:flex;align-items:center;justify-content:center;text-align:center;padding:3rem 1rem;">
+    <div style="max-width:480px;">
+        <div style="font-family:'DM Serif Display',serif;font-size:clamp(5rem,15vw,9rem);font-weight:400;line-height:1;letter-spacing:-.04em;margin-bottom:.5rem;background:linear-gradient(135deg,var(--cyan) 0%,var(--cyan-dim) 50%,var(--text-400) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:fadeUp .6s ease both;">{{ code|default(404) }}</div>
+        <div style="font-size:1.4rem;font-weight:800;color:var(--text-100);margin-bottom:.75rem;animation:fadeUp .6s ease .1s both;">
+            {% if code|default(404) == 403 %}Access Denied
+            {% elif code|default(404) == 500 %}Server Error
+            {% else %}Page Not Found{% endif %}
+        </div>
+        <p style="font-size:.9rem;color:var(--text-400);line-height:1.7;margin-bottom:2rem;animation:fadeUp .6s ease .2s both;">
+            {% if message %}{{ message }}
+            {% elif code|default(404) == 403 %}You don't have permission to view this page.
+            {% elif code|default(404) == 500 %}Something went wrong on our end. Please try again.
+            {% else %}The page you're looking for doesn't exist or has been moved.{% endif %}
+        </p>
+        <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;animation:fadeUp .6s ease .3s both;">
+            {% if current_user %}
+            <a href="{{ '/doctor' if current_user.role == 'doctor' else '/dashboard' }}" class="btn btn-lg">← Go to Dashboard</a>
+            {% else %}
+            <a href="/login" class="btn btn-lg">Sign In</a>
+            {% endif %}
+            <a href="/" class="btn btn-ghost">Go Home</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

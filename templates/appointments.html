@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Appointments — RetinaAI{% endblock %}
+{% block content %}
+{% set tic = {'Initial Consultation':'🏥','Follow-up':'🔄','Laser Therapy':'💡','Injection Session':'💉','Post-treatment Review':'🔍','Emergency':'🚨'} %}
+
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2rem;" class="fade-in">
+    <div>
+        <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:.4rem;">📅 Appointments</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--text-100);letter-spacing:-.025em;">Your Schedule</div>
+        <p style="color:var(--text-400);font-size:.85rem;margin-top:.25rem;">{{ appointments|length if appointments else 0 }} total appointment{{ 's' if (appointments|length if appointments else 0) != 1 else '' }}</p>
+    </div>
+    {% if current_user.role != 'doctor' %}<a href="/appointments/book" class="btn btn-lg">+ Book Appointment</a>{% endif %}
+</div>
+
+{% if appointments %}
+<div class="card fade-in delay-1" style="padding:0;overflow:hidden;">
+    {% for a in appointments %}
+    <div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.5rem;border-bottom:{{ '1px solid var(--border)' if not loop.last else 'none' }};cursor:pointer;transition:var(--ease);" onclick="location.href='/appointments/{{ a.id }}'" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">
+        <div style="width:46px;height:46px;border-radius:var(--r-md);background:var(--deep);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;{% if a.status in ['cancelled','completed'] %}opacity:.55;{% endif %}">{{ tic.get(a.type,'📅') }}</div>
+        <div style="flex:1;min-width:0;{% if a.status in ['cancelled','completed'] %}opacity:.7;{% endif %}">
+            <div style="font-weight:700;font-size:.9rem;color:var(--text-100);">{{ a.type }}</div>
+            <div style="font-size:.78rem;color:var(--text-400);margin-top:1px;">
+                📅 {{ a.appointment_date }} at ⏰ {{ a.appointment_time }}
+                {% if current_user.role == 'doctor' %}
+                 &nbsp;·&nbsp; 👤 {{ a.patient_name }}
+                {% elif a.doctor_name %}
+                 &nbsp;·&nbsp; 🏥 Dr. {{ a.doctor_name }}
+                {% endif %}
+            </div>
+        </div>
+        <span class="status-badge status-{{ a.status }}">{{ a.status }}</span>
+        <a href="/appointments/{{ a.id }}" class="btn btn-ghost" style="font-size:.75rem;padding:5px 12px;" onclick="event.stopPropagation()">View →</a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card fade-in delay-1" style="text-align:center;padding:4rem 2rem;">
+    <div style="font-size:4rem;margin-bottom:1rem;opacity:.2;">📅</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--text-200);margin-bottom:.5rem;">No appointments yet</div>
+    <p style="color:var(--text-400);font-size:.88rem;margin-bottom:1.5rem;">Book a consultation or follow-up with a specialist.</p>
+    {% if current_user.role != 'doctor' %}<a href="/appointments/book" class="btn btn-lg">Book Appointment →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

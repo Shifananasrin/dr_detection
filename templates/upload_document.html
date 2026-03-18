@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Upload Document — RetinaAI{% endblock %}
+{% block extra_styles %}
+.doc-zone { border:2px dashed rgba(0,229,204,.2);border-radius:var(--r-xl);padding:3.5rem 2rem;text-align:center;cursor:pointer;transition:var(--ease);background:radial-gradient(ellipse 60% 80% at 50% 50%,rgba(0,229,204,.03) 0%,transparent 70%);position:relative;overflow:hidden; }
+.doc-zone:hover,.doc-zone.dragover { border-color:var(--cyan);box-shadow:0 0 50px var(--cyan-halo); }
+.doc-zone input { position:absolute;inset:0;opacity:0;cursor:pointer; }
+.doc-zone-icon { font-size:3rem;display:block;margin-bottom:1rem;transition:var(--ease-spring);filter:drop-shadow(0 0 10px rgba(0,229,204,.3)); }
+.doc-zone:hover .doc-zone-icon { transform:scale(1.1) translateY(-3px); }
+.dt-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.5rem; }
+.dt-opt input { display:none; }
+.dt-lbl { display:flex;flex-direction:column;align-items:center;gap:4px;padding:.75rem .5rem;border:1.5px solid var(--border);border-radius:var(--r-md);cursor:pointer;transition:var(--ease);font-size:.75rem;font-weight:700;color:var(--text-400);background:var(--deep);text-align:center; }
+.dt-lbl:hover { border-color:var(--border-md);background:var(--glass);color:var(--text-200); }
+.dt-opt input:checked + .dt-lbl { border-color:var(--cyan);background:var(--cyan-halo);color:var(--cyan); }
+.dt-icon { font-size:1.3rem; }
+{% endblock %}
+{% block content %}
+<div style="background:linear-gradient(135deg,#1a0a30,#0f0020 50%,var(--deep));border:1px solid rgba(176,96,240,.2);border-radius:var(--r-2xl);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;gap:1.5rem;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#b060f0;margin-bottom:.4rem;">📎 Upload</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.85rem;color:var(--text-100);letter-spacing:-.02em;margin-bottom:.25rem;">Medical Document</div>
+        <p style="color:var(--text-400);font-size:.82rem;">Lab results, prescriptions, referrals, and clinical records</p>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:6rem;opacity:.06;">📎</div>
+</div>
+
+{% if error %}<div class="alert alert-danger fade-in"><span class="alert-icon">❌</span><div>{{ error }}</div></div>{% endif %}
+
+<form method="POST" action="/documents/upload{% if target_patient_id and current_user.role=='doctor' %}?patient_id={{ target_patient_id }}{% endif %}" enctype="multipart/form-data">
+    {% if current_user.role == 'doctor' %}<input type="hidden" name="patient_id" value="{{ target_patient_id }}">{% endif %}
+    <div class="grid-2 fade-in delay-1" style="align-items:start;">
+        <div class="card card-glow">
+            <h2>Select File</h2>
+            <div class="doc-zone" id="dz">
+                <span class="doc-zone-icon">📄</span>
+                <div style="font-size:1rem;font-weight:800;color:var(--text-100);margin-bottom:.4rem;">Drop document here</div>
+                <div style="font-size:.82rem;color:var(--text-400);margin-bottom:1.25rem;">PDF · PNG · JPG · DOCX · TXT · Max 16 MB</div>
+                <div class="btn" style="pointer-events:none;display:inline-flex;">Choose File</div>
+                <input type="file" name="file" id="fi" accept=".pdf,.png,.jpg,.jpeg,.docx,.txt,.bmp,.tiff" required>
+            </div>
+            <div id="fp" style="display:none;margin-top:1rem;padding:1rem;background:rgba(0,196,140,.08);border:1px solid rgba(0,196,140,.2);border-radius:var(--r-md);">
+                <div style="display:flex;align-items:center;gap:.85rem;">
+                    <span id="ficon" style="font-size:2rem;">📎</span>
+                    <div style="flex:1;min-width:0;">
+                        <div id="fn" style="font-weight:700;font-size:.875rem;color:var(--text-100);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                        <div id="fs" style="font-size:.74rem;color:var(--text-400);margin-top:2px;"></div>
+                    </div>
+                    <span style="font-size:.75rem;color:var(--success);font-weight:700;">✓ Ready</span>
+                </div>
+                <div id="iprev" style="display:none;margin-top:.75rem;"><img id="pimg" style="max-height:120px;border-radius:var(--r-sm);border:1px solid var(--border);"></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Document Details</h2>
+            <div class="form-group">
+                <label>Document Type</label>
+                <div class="dt-grid">
+                    {% for icon, t in [('🧪','Lab Report'),('💊','Prescription'),('📩','Referral Letter'),('🔬','Previous Scan'),('📋','Insurance'),('📎','Other')] %}
+                    <div class="dt-opt"><input type="radio" name="doc_type" value="{{ t }}" id="dt{{ loop.index }}" {{ 'checked' if loop.first else '' }}><label class="dt-lbl" for="dt{{ loop.index }}"><span class="dt-icon">{{ icon }}</span>{{ t }}</label></div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="form-group"><label>Link to Scan <span style="font-weight:400;color:var(--text-500);">(optional)</span></label><select name="scan_id" class="form-control"><option value="">— Not linked —</option>{% for scan in scans %}<option value="{{ scan.id }}">Scan #{{ scan.id }} · {{ scan.uploaded_at[:10] }} · {{ scan.ai_class_name or 'Pending' }}</option>{% endfor %}</select></div>
+            <div class="form-group" style="margin-bottom:1.5rem;"><label>Description</label><input type="text" name="description" class="form-control" placeholder="e.g. HbA1c from Jan 2025…"></div>
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+                <button type="submit" class="btn" style="flex:1;justify-content:center;">📎 Upload Document</button>
+                <a href="{{ '/doctor/patient/'+target_patient_id|string if current_user.role=='doctor' and target_patient_id else '/documents' }}" class="btn btn-ghost">Cancel</a>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const fi = document.getElementById('fi'), dz = document.getElementById('dz');
+const fp = document.getElementById('fp'), fn = document.getElementById('fn');
+const fs = document.getElementById('fs'), ficon = document.getElementById('ficon');
+const iprev = document.getElementById('iprev'), pimg = document.getElementById('pimg');
+const icons = {pdf:'📄',jpg:'🖼',jpeg:'🖼',png:'🖼',bmp:'🖼',docx:'📝',doc:'📝',txt:'📃'};
+fi.addEventListener('change', function() {
+    if (!this.files.length) return;
+    const f = this.files[0];
+    const ext = f.name.split('.').pop().toLowerCase();
+    fn.textContent = f.name; fs.textContent = (f.size/1024).toFixed(1)+' KB · '+f.type;
+    ficon.textContent = icons[ext]||'📎';
+    fp.style.display = 'block'; dz.style.borderColor = 'var(--success)';
+    if (f.type.startsWith('image/')) { const rd = new FileReader(); rd.onload = e => { pimg.src = e.target.result; iprev.style.display = 'block'; }; rd.readAsDataURL(f); }
+});
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); });
+</script>
+{% endblock %}

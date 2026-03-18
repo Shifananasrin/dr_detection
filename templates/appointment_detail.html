@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Appointment #{{ appt.id }} — RetinaAI{% endblock %}
+{% block content %}
+{% set sc_map = {'scheduled':'#4d9fff','confirmed':'#00c48c','completed':'#5a6e8a','cancelled':'#f04040','no-show':'#f0a030'} %}
+{% set sc = sc_map.get(appt.status, '#4d9fff') %}
+{% set tic = {'Initial Consultation':'🏥','Follow-up':'🔄','Laser Therapy':'💡','Injection Session':'💉','Post-treatment Review':'🔍','Emergency':'🚨'} %}
+{% set months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] %}
+{% set parts = appt.appointment_date.split('-') if appt.appointment_date else ['','00','01'] %}
+
+<div style="background:linear-gradient(135deg,{{ sc }}18,var(--surface));border:1px solid {{ sc }}25;border-left:5px solid {{ sc }};border-radius:var(--r-xl);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;" class="fade-in">
+    <div style="display:flex;align-items:center;gap:1.5rem;position:relative;z-index:1;">
+        <div style="background:{{ sc }}25;border:1px solid {{ sc }}40;border-radius:var(--r-lg);padding:.75rem 1.1rem;text-align:center;flex-shrink:0;backdrop-filter:blur(8px);">
+            <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:{{ sc }};line-height:1;">{{ parts[2] }}</div>
+            <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:{{ sc }};opacity:.8;">{{ months[parts[1]|int] }}</div>
+        </div>
+        <div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.75rem;color:var(--text-100);letter-spacing:-.02em;margin-bottom:.3rem;">{{ tic.get(appt.type,'📅') }} {{ appt.type }}</div>
+            <p style="color:var(--text-400);font-size:.82rem;">⏰ {{ appt.appointment_time }} &nbsp;·&nbsp; #{{ appt.id }} &nbsp;·&nbsp; <span class="status-badge status-{{ appt.status }}">{{ appt.status }}</span></p>
+        </div>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.5rem;flex-wrap:wrap;">
+        <a href="/appointments" class="btn btn-ghost" style="font-size:.8rem;">← Back</a>
+        {% if current_user.role == 'doctor' and appt.scan_id %}<a href="/scan/{{ appt.scan_id }}" class="btn btn-ghost" style="font-size:.8rem;">🔬 Scan</a>{% endif %}
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:6rem;opacity:.06;">📅</div>
+</div>
+
+<div class="grid-2 fade-in delay-1">
+    <div>
+        <div class="card card-glow">
+            <h2>Appointment Details</h2>
+            {% for label, val in [
+                ('Date & Time', appt.appointment_date + ' · ' + appt.appointment_time),
+                ('Patient', appt.patient_name),
+                ('Email', appt.patient_email),
+                ('Doctor', appt.doctor_name or 'Unassigned'),
+                ('Specialty', appt.doctor_specialty or '—'),
+            ] %}
+            <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 0;border-bottom:1px solid var(--border);">
+                <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--text-500);min-width:90px;flex-shrink:0;padding-top:2px;">{{ label }}</div>
+                <div style="font-size:.875rem;font-weight:600;color:var(--text-200);">{{ val }}</div>
+            </div>
+            {% endfor %}
+            {% if appt.scan_id %}
+            <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 0;border-bottom:1px solid var(--border);">
+                <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--text-500);min-width:90px;flex-shrink:0;padding-top:2px;">Linked Scan</div>
+                <a href="/scan/{{ appt.scan_id }}" style="font-size:.875rem;font-weight:700;color:var(--cyan);text-decoration:none;">🔬 Scan #{{ appt.scan_id }} →</a>
+            </div>
+            {% endif %}
+            <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 0;">
+                <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--text-500);min-width:90px;flex-shrink:0;padding-top:2px;">Booked</div>
+                <div style="font-size:.82rem;color:var(--text-400);">{{ appt.created_at[:16] if appt.created_at else '—' }}</div>
+            </div>
+        </div>
+        {% if appt.patient_notes %}
+        <div class="card"><h2>Patient Notes</h2><p style="font-size:.875rem;color:var(--text-300);line-height:1.65;">{{ appt.patient_notes }}</p></div>
+        {% endif %}
+        {% if appt.doctor_notes %}
+        <div class="card card-glow"><h2>Doctor Notes</h2><p style="font-size:.875rem;color:var(--text-300);line-height:1.65;">{{ appt.doctor_notes }}</p></div>
+        {% endif %}
+        {% if current_user.role == 'doctor' %}
+        <a href="/doctor/patient/{{ appt.patient_id }}" class="btn btn-ghost" style="font-size:.82rem;">👤 Patient History</a>
+        {% elif appt.status in ['scheduled','confirmed'] %}
+        <div class="card" style="background:rgba(240,64,64,.06);border-color:rgba(240,64,64,.15);margin-top:1.25rem;">
+            <h3 style="color:var(--danger);margin-bottom:.5rem;">Cancel Appointment</h3>
+            <p style="font-size:.82rem;color:var(--text-400);margin-bottom:.85rem;">Please cancel early to free the slot for other patients.</p>
+            <form method="POST" action="/appointments/{{ appt.id }}">
+                <input type="hidden" name="status" value="cancelled"><input type="hidden" name="doctor_notes" value="">
+                <button type="submit" class="btn btn-danger" style="font-size:.82rem;" onclick="return confirm('Cancel this appointment?')">Cancel Appointment</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if current_user.role == 'doctor' %}
+    <div style="position:sticky;top:76px;">
+        <div class="card" style="border-top:3px solid var(--cyan);">
+            <h2>Update Appointment</h2>
+            <form method="POST" action="/appointments/{{ appt.id }}">
+                <div class="form-group"><label>Status</label><select name="status" class="form-control">{% for s in ['scheduled','confirmed','completed','cancelled','no-show'] %}<option value="{{ s }}" {{ 'selected' if appt.status == s }}>{{ s.replace('-',' ').title() }}</option>{% endfor %}</select></div>
+                <div class="form-group" style="margin-bottom:1.5rem;"><label>Clinical Notes</label><textarea name="doctor_notes" class="form-control" rows="5" placeholder="Record observations, outcome, next steps…">{{ appt.doctor_notes or '' }}</textarea></div>
+                <button type="submit" class="btn" style="width:100%;justify-content:center;">💾 Save Changes</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

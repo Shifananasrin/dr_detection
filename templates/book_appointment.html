@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Book Appointment — RetinaAI{% endblock %}
+{% block content %}
+<div style="background:linear-gradient(135deg,#0a1a3a,#0f2040 50%,var(--deep));border:1px solid var(--border);border-radius:var(--r-2xl);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--cyan);margin-bottom:.4rem;">📅 Appointments</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.85rem;color:var(--text-100);letter-spacing:-.025em;margin-bottom:.25rem;">Book an Appointment</div>
+        <p style="color:var(--text-400);font-size:.82rem;">Schedule a consultation or follow-up with a specialist</p>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:6rem;opacity:.05;">📅</div>
+</div>
+
+{% if error %}<div class="alert alert-danger fade-in"><span class="alert-icon">❌</span><div>{{ error }}</div></div>{% endif %}
+
+<form method="POST" action="/appointments/book">
+    <div class="grid-2 fade-in delay-1" style="align-items:start;">
+        <div>
+            <div class="card card-glow">
+                <h2>Appointment Details</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Appointment Type</label>
+                        <select name="type" class="form-control">
+                            {% for t in ['Follow-up','Initial Consultation','Laser Therapy','Injection Session','Post-treatment Review','Emergency'] %}
+                            <option value="{{ t }}">{{ t }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Preferred Doctor</label>
+                        <select name="doctor_id" class="form-control">
+                            <option value="">Any available doctor</option>
+                            {% for doc in doctors %}<option value="{{ doc.id }}">{{ doc.name }}{% if doc.specialty %} — {{ doc.specialty }}{% endif %}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="date" name="appointment_date" class="form-control" min="{{ today }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Time</label>
+                        <select name="appointment_time" class="form-control" required>
+                            {% for h in range(8, 18) %}{% for m in ['00','30'] %}<option value="{{ '%02d'|format(h) }}:{{ m }}">{{ '%02d'|format(h) }}:{{ m }}</option>{% endfor %}{% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h2>Link to Scan <span style="font-size:.78rem;font-weight:400;color:var(--text-500);">(optional)</span></h2>
+                <div class="form-group">
+                    <label>Related Scan</label>
+                    <select name="scan_id" class="form-control">
+                        <option value="">— Not linked —</option>
+                        {% for scan in scans %}<option value="{{ scan.id }}">Scan #{{ scan.id }} · {{ scan.uploaded_at[:10] }} · {{ scan.ai_class_name or 'Pending' }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:1.5rem;">
+                    <label>Notes / Reason for Visit</label>
+                    <textarea name="patient_notes" class="form-control" rows="3" placeholder="Describe your symptoms, concerns, or reason…"></textarea>
+                </div>
+                <div style="display:flex;gap:.75rem;">
+                    <button type="submit" class="btn btn-lg">📅 Confirm Booking</button>
+                    <a href="/appointments" class="btn btn-ghost">Cancel</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Booking Guide</h2>
+            {% for icon, title, tip in [
+                ('🔄','Follow-up','Required if your last scan showed DR Grade ≥ 1. Book within the timeframe your doctor specified.'),
+                ('🏥','Initial Consultation','First visit or if you have new symptoms. Bring your complete medical history.'),
+                ('💡','Laser Therapy','Book only after doctor recommends photocoagulation treatment. Usually same-day admission.'),
+                ('💉','Injection Session','Anti-VEGF injections are scheduled every 4–6 weeks. Book well in advance.'),
+                ('🚨','Emergency','Sudden vision loss, floaters, or flashes — contact clinic directly or visit A&E.'),
+            ] %}
+            <div style="display:flex;gap:.85rem;padding:.9rem 0;border-bottom:{{ '1px solid var(--border)' if not loop.last else 'none' }};">
+                <div style="width:36px;height:36px;border-radius:var(--r-sm);background:var(--deep);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">{{ icon }}</div>
+                <div>
+                    <div style="font-size:.82rem;font-weight:700;color:var(--text-100);margin-bottom:3px;">{{ title }}</div>
+                    <div style="font-size:.76rem;color:var(--text-400);line-height:1.55;">{{ tip }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</form>
+{% endblock %}
+{% block extra_scripts %}
+<script>document.querySelector('input[type="date"]').min = new Date().toISOString().split('T')[0];</script>
+{% endblock %}

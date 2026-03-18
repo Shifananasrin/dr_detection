@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Training Graphs — RetinaAI{% endblock %}
+{% block extra_styles %}
+/* ── Graph grid ── */
+.graph-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+}
+@media(max-width: 720px) { .graph-grid { grid-template-columns: 1fr; } }
+
+.graph-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    transition: var(--ease);
+    cursor: zoom-in;
+}
+.graph-card:hover {
+    border-color: rgba(0,229,204,.3);
+    box-shadow: 0 0 32px rgba(0,229,204,.07);
+    transform: translateY(-2px);
+}
+.graph-card-header {
+    padding: .75rem 1.1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--deep);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.graph-card-title { font-size:.82rem;font-weight:700;color:var(--text-200);display:flex;align-items:center;gap:.5rem; }
+.expand-btn {
+    width: 28px; height: 28px; border-radius: var(--r-sm);
+    background: var(--glass); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8rem; cursor: pointer; transition: var(--ease);
+    color: var(--text-400);
+    flex-shrink: 0;
+}
+.expand-btn:hover { background: rgba(0,229,204,.1); border-color: rgba(0,229,204,.3); color: var(--cyan); }
+.graph-card img {
+    width: 100%; height: 300px;
+    object-fit: cover; display: block;
+    transition: transform .3s ease;
+}
+.graph-card:hover img { transform: scale(1.01); }
+
+/* ── Lightbox ── */
+#lightbox {
+    display: none;
+    position: fixed; inset: 0; z-index: 9000;
+    background: rgba(6,9,19,.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    cursor: zoom-out;
+    animation: fadeIn .18s ease;
+}
+#lightbox.open { display: flex; }
+#lightbox-inner {
+    position: relative;
+    max-width: min(1100px, 95vw);
+    max-height: 90vh;
+    background: var(--surface);
+    border: 1px solid var(--border-md);
+    border-radius: var(--r-2xl);
+    overflow: hidden;
+    cursor: default;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 40px 120px rgba(0,0,0,.8);
+    animation: fadeUp .22s cubic-bezier(0.16,1,0.3,1);
+}
+#lightbox-header {
+    padding: .8rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--deep);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+}
+#lightbox-title { font-size:.85rem;font-weight:700;color:var(--text-200);display:flex;align-items:center;gap:.5rem; }
+#lightbox-close {
+    width: 32px; height: 32px; border-radius: var(--r-sm);
+    background: var(--glass); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; cursor: pointer; transition: var(--ease);
+    color: var(--text-300); flex-shrink: 0;
+}
+#lightbox-close:hover { background: rgba(240,64,64,.15); border-color: rgba(240,64,64,.3); color: var(--danger); }
+#lightbox-img {
+    max-width: 100%; max-height: calc(90vh - 120px);
+    object-fit: contain; display: block;
+    width: 100%;
+}
+#lightbox-footer {
+    padding: .7rem 1.25rem;
+    border-top: 1px solid var(--border);
+    background: var(--deep);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+}
+.lb-nav-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: var(--r-sm);
+    background: var(--glass); border: 1px solid var(--border);
+    cursor: pointer; font-size: .8rem; font-weight: 600;
+    color: var(--text-300); transition: var(--ease);
+}
+.lb-nav-btn:hover { border-color: rgba(0,229,204,.3); color: var(--cyan); }
+.lb-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+.lb-counter { font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--text-500); }
+{% endblock %}
+
+{% block content %}
+<!-- Header hero -->
+<div style="background:linear-gradient(135deg,var(--surface),var(--deep));border:1px solid var(--border);border-radius:var(--r-2xl);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--cyan);margin-bottom:.4rem;">🧠 Model Evaluation</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.9rem;color:var(--text-100);letter-spacing:-.025em;margin-bottom:.25rem;">Training Results</div>
+        <p style="color:var(--text-400);font-size:.82rem;margin:0;">EfficientNetB0 performance metrics · Click any graph to expand</p>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.6rem;">
+        <a href="{{ '/doctor' if current_user and current_user.role == 'doctor' else '/dashboard' }}" class="btn btn-ghost">← Dashboard</a>
+        <a href="/analytics" class="btn">📊 Analytics</a>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:6rem;opacity:.04;pointer-events:none;">📈</div>
+</div>
+
+{% if graphs %}
+<div class="graph-grid" id="graphGrid">
+    {% for title, path in graphs.items() %}
+    <div class="graph-card fade-in delay-{{ loop.index }}"
+         onclick="openLightbox({{ loop.index0 }})"
+         data-title="{{ title }}"
+         data-src="/static/{{ path }}">
+        <div class="graph-card-header">
+            <div class="graph-card-title">
+                {{ ['📈','🎯','📊','📋','🔍','⚙️'][loop.index0 % 6] }} {{ title }}
+            </div>
+            <div class="expand-btn" title="Expand">⛶</div>
+        </div>
+        <img src="/static/{{ path }}" alt="{{ title }}" loading="lazy">
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card fade-in delay-1" style="text-align:center;padding:4rem 2rem;">
+    <div style="font-size:4rem;margin-bottom:1rem;opacity:.2;">🧠</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--text-200);margin-bottom:.5rem;">No Training Graphs Yet</div>
+    <p style="color:var(--text-400);font-size:.88rem;margin-bottom:1.5rem;">Train the model first to generate performance visualizations.</p>
+    <div class="alert alert-warning" style="text-align:left;max-width:420px;margin:0 auto;display:inline-flex;">
+        <span class="alert-icon">💡</span>
+        <div>Run <code style="font-family:'JetBrains Mono',monospace;background:var(--deep);padding:2px 7px;border-radius:4px;font-size:.82rem;">python train.py</code> to generate graphs</div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox(event)">
+    <div id="lightbox-inner" onclick="event.stopPropagation()">
+        <div id="lightbox-header">
+            <div id="lightbox-title">📈 Graph</div>
+            <div id="lightbox-close" onclick="closeLightbox(null)" title="Close (Esc)">✕</div>
+        </div>
+        <img id="lightbox-img" src="" alt="">
+        <div id="lightbox-footer">
+            <button class="lb-nav-btn" id="lbPrev" onclick="lbNav(-1)">← Prev</button>
+            <span class="lb-counter" id="lbCounter">1 / 1</span>
+            <button class="lb-nav-btn" id="lbNext" onclick="lbNav(1)">Next →</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Collect all graph cards
+const cards = Array.from(document.querySelectorAll('.graph-card[data-src]'));
+let currentIdx = 0;
+
+function openLightbox(idx) {
+    currentIdx = idx;
+    updateLightbox();
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function updateLightbox() {
+    const card = cards[currentIdx];
+    if (!card) return;
+    document.getElementById('lightbox-img').src = card.dataset.src;
+    const icons = ['📈','🎯','📊','📋','🔍','⚙️'];
+    document.getElementById('lightbox-title').innerHTML =
+        icons[currentIdx % icons.length] + ' ' + card.dataset.title;
+    document.getElementById('lbCounter').textContent =
+        (currentIdx + 1) + ' / ' + cards.length;
+    document.getElementById('lbPrev').disabled = currentIdx === 0;
+    document.getElementById('lbNext').disabled = currentIdx === cards.length - 1;
+}
+
+function lbNav(dir) {
+    const newIdx = currentIdx + dir;
+    if (newIdx >= 0 && newIdx < cards.length) {
+        currentIdx = newIdx;
+        // Fade image during transition
+        const img = document.getElementById('lightbox-img');
+        img.style.opacity = '0.3';
+        updateLightbox();
+        img.addEventListener('load', () => { img.style.opacity = '1'; }, { once: true });
+        img.style.transition = 'opacity .15s ease';
+    }
+}
+
+function closeLightbox(e) {
+    if (e && e.target !== document.getElementById('lightbox') && e.target !== document.getElementById('lightbox-close')) return;
+    if (e === null || e.target === document.getElementById('lightbox') || e.target === document.getElementById('lightbox-close')) {
+        document.getElementById('lightbox').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+}
+
+document.addEventListener('keydown', e => {
+    const lb = document.getElementById('lightbox');
+    if (!lb.classList.contains('open')) return;
+    if (e.key === 'Escape') { lb.classList.remove('open'); document.body.style.overflow = ''; }
+    if (e.key === 'ArrowLeft')  lbNav(-1);
+    if (e.key === 'ArrowRight') lbNav(1);
+});
+</script>
+{% endblock %}

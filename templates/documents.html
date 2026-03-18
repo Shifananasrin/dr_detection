@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Documents — RetinaAI{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:2rem;" class="fade-in">
+    <div>
+        <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:.4rem;">📎 Documents</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--text-100);letter-spacing:-.025em;">Medical Records</div>
+    </div>
+    <a href="/documents/upload" class="btn">+ Upload Document</a>
+</div>
+
+{% set doc_icons = {'Lab Report':'🧪','Prescription':'💊','Referral Letter':'📩','Previous Scan':'🔬','Insurance':'📋','Other':'📎'} %}
+
+{% if documents %}
+<div class="card fade-in delay-1" style="padding:0;overflow:hidden;">
+    <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--deep);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:.82rem;font-weight:700;color:var(--text-300);">{{ documents|length }} document{{ 's' if documents|length != 1 }}</span>
+    </div>
+    {% for doc in documents %}
+    <div style="display:flex;align-items:center;gap:1rem;padding:1rem 1.5rem;border-bottom:{{ '1px solid var(--border)' if not loop.last else 'none' }};transition:var(--ease);" onmouseover="this.style.background='var(--glass)'" onmouseout="this.style.background='transparent'">
+        <div style="width:44px;height:44px;border-radius:var(--r-md);background:var(--deep);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;">{{ doc_icons.get(doc.doc_type,'📎') }}</div>
+        <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:.88rem;color:var(--text-100);">{{ doc.description or doc.filename or 'Document' }}</div>
+            <div style="font-size:.74rem;color:var(--text-400);margin-top:2px;">
+                {{ doc.doc_type }} &nbsp;·&nbsp; {{ doc.uploaded_at[:10] if doc.uploaded_at else '' }}
+                {% if doc.scan_id %} &nbsp;·&nbsp; <span style="color:var(--cyan);">Scan #{{ doc.scan_id }}</span>{% endif %}
+            </div>
+        </div>
+        {% if doc.file_path %}
+        <a href="{{ doc.file_url or '/static/'+doc.file_path }}" target="_blank" class="btn btn-ghost" style="font-size:.75rem;padding:5px 12px;">Open ↗</a>
+        {% endif %}
+        <form method="POST" action="/documents/{{ doc.id }}/delete" style="display:inline;" onsubmit="return confirm('Delete this document?')">
+            <button type="submit" style="background:none;border:none;cursor:pointer;color:var(--text-500);font-size:.85rem;transition:var(--ease);padding:4px;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-500)'">🗑</button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card fade-in delay-1" style="text-align:center;padding:4rem 2rem;">
+    <div style="font-size:4rem;margin-bottom:1rem;opacity:.2;">📎</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:var(--text-200);margin-bottom:.5rem;">No documents yet</div>
+    <p style="color:var(--text-400);font-size:.88rem;margin-bottom:1.5rem;">Upload lab results, prescriptions, or referral letters to keep everything in one place.</p>
+    <a href="/documents/upload" class="btn btn-lg">Upload First Document →</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}New Scan — RetinaAI{% endblock %}
+{% block extra_styles %}
+.scan-hero { background:radial-gradient(ellipse 70% 60% at 50% 0%, rgba(0,229,204,.12) 0%, transparent 60%), linear-gradient(135deg, var(--surface), var(--deep)); border:1px solid var(--border); border-radius:var(--r-2xl); padding:2.5rem 3rem; margin-bottom:2rem; position:relative; overflow:hidden; text-align:center; }
+.scan-hero::after { content:'🔬'; position:absolute; right:3rem; top:50%; transform:translateY(-50%); font-size:7rem; opacity:.06; pointer-events:none; }
+.scan-hero h1 { font-family:'DM Serif Display',serif; font-size:2.2rem; color:var(--text-100); letter-spacing:-.025em; margin-bottom:.5rem; }
+.scan-hero p  { color:var(--text-400); font-size:.9rem; }
+
+.pipeline { display:flex; gap:0; margin-bottom:2rem; border:1px solid var(--border); border-radius:var(--r-md); overflow:hidden; }
+.ps { flex:1; padding:.7rem .5rem; text-align:center; background:var(--surface); border-right:1px solid var(--border); transition:var(--ease); }
+.ps:last-child { border-right:none; }
+.ps.active { background:var(--cyan-halo); }
+.ps-n { width:22px;height:22px;border-radius:50%;background:var(--deep);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;color:var(--text-400);margin-bottom:.25rem; }
+.ps.active .ps-n { background:var(--cyan);border-color:var(--cyan);color:var(--obsidian); }
+.ps-l { font-size:.65rem;font-weight:700;color:var(--text-400);text-transform:uppercase;letter-spacing:.05em; }
+.ps.active .ps-l { color:var(--cyan); }
+
+.drop-zone { border:2px dashed rgba(0,229,204,.2); border-radius:var(--r-xl); padding:4rem 2rem; text-align:center; cursor:pointer; transition:var(--ease); background:radial-gradient(ellipse 60% 80% at 50% 50%, rgba(0,229,204,.04) 0%, transparent 70%); position:relative; overflow:hidden; }
+.drop-zone:hover, .drop-zone.dragover { border-color:var(--cyan); box-shadow:0 0 60px var(--cyan-halo); background:radial-gradient(ellipse 60% 80% at 50% 50%, rgba(0,229,204,.08) 0%, transparent 70%); }
+.drop-zone input { position:absolute;inset:0;opacity:0;cursor:pointer; }
+.dz-icon { font-size:3.5rem; display:block; margin-bottom:1rem; transition:var(--ease-spring); filter:drop-shadow(0 0 15px rgba(0,229,204,.3)); }
+.drop-zone:hover .dz-icon { transform:scale(1.12) translateY(-4px); }
+{% endblock %}
+{% block content %}
+<div class="scan-hero fade-in">
+    <div style="position:relative;z-index:1;">
+        <h1>Upload Retinal Scan</h1>
+        <p>AI-powered diabetic retinopathy detection with Grad-CAM visual explainability</p>
+    </div>
+</div>
+
+<div class="pipeline fade-in delay-1">
+    {% for i, label in [(1,'Upload'),(2,'AI Analysis'),(3,'Risk Score'),(4,'Dr. Review'),(5,'Report')] %}
+    <div class="ps {{ 'active' if i == 1 }}">
+        <div class="ps-n">{{ i }}</div>
+        <div class="ps-l">{{ label }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not model_loaded %}<div class="alert alert-warning fade-in"><span class="alert-icon">⚠️</span><div><strong>AI model not loaded.</strong> Run <code>python train.py</code> to train first.</div></div>{% endif %}
+{% if not has_profile %}<div class="alert alert-info fade-in"><span class="alert-icon">ℹ️</span><div><strong>Profile incomplete</strong> — <a href="/profile" style="color:var(--cyan);font-weight:700;">Complete your medical profile</a> to enable risk scoring.</div></div>{% endif %}
+{% if error %}<div class="alert alert-danger fade-in"><span class="alert-icon">❌</span><div>{{ error }}</div></div>{% endif %}
+
+<div class="grid-2 fade-in delay-2" style="align-items:start;">
+    <div>
+        <div class="card card-glow">
+            <h2>Retinal Fundus Image</h2>
+            <form action="/scan/new" method="POST" enctype="multipart/form-data" id="scanForm">
+                <div class="drop-zone" id="dropZone">
+                    <span class="dz-icon">👁️‍🗨️</span>
+                    <div style="font-size:1.1rem;font-weight:800;color:var(--text-100);margin-bottom:.4rem;">Drop fundus image here</div>
+                    <div style="font-size:.82rem;color:var(--text-400);margin-bottom:1.25rem;">PNG · JPG · BMP · TIFF · max 16 MB</div>
+                    <div class="btn" style="pointer-events:none;display:inline-flex;">Select File</div>
+                    <input type="file" name="file" accept=".png,.jpg,.jpeg,.bmp,.tiff" id="fileInput" required>
+                </div>
+                <div id="filePreview" style="display:none;margin-top:1rem;padding:1rem;background:rgba(0,196,140,.08);border:1px solid rgba(0,196,140,.2);border-radius:var(--r-md);">
+                    <div style="display:flex;align-items:center;gap:.85rem;">
+                        <img id="imgThumb" style="width:68px;height:68px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--border);" src="" alt="">
+                        <div>
+                            <div id="fileName" style="font-weight:700;font-size:.875rem;color:var(--text-100);"></div>
+                            <div id="fileSize" style="font-size:.74rem;color:var(--text-400);margin-top:2px;"></div>
+                            <div style="font-size:.72rem;color:var(--success);font-weight:700;margin-top:4px;">✓ Ready for analysis</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:1.5rem;">
+                    <button type="submit" class="btn btn-lg" {% if not model_loaded %}disabled{% endif %} id="analyzeBtn">🔬 Analyze with AI</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:1.25rem;">
+        <div class="card">
+            <h2>What to Expect</h2>
+            {% for icon, title, desc in [
+                ('🧠','EfficientNetB0','Your image is classified into 5 DR severity grades using deep learning.'),
+                ('🔥','Grad-CAM Heatmap','A visual overlay shows which retinal regions drove the AI decision.'),
+                ('📊','Risk Score','Clinical parameters combine with AI grade for a composite risk score.'),
+                ('👨‍⚕️','Doctor Review','A physician validates the AI prediction and adds clinical notes.'),
+            ] %}
+            <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:.85rem;">
+                <div style="width:34px;height:34px;border-radius:var(--r-sm);background:var(--glass-md);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;">{{ icon }}</div>
+                <div>
+                    <div style="font-size:.82rem;font-weight:700;color:var(--text-100);margin-bottom:2px;">{{ title }}</div>
+                    <div style="font-size:.77rem;color:var(--text-400);line-height:1.5;">{{ desc }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="card">
+            <h2>DR Grading Scale</h2>
+            {% for gid, gcolor, gname in [(0,'#00c48c','No DR'),(1,'#4d9fff','Mild'),(2,'#f0a030','Moderate'),(3,'#f04040','Severe'),(4,'#b060f0','Proliferative')] %}
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:{{ '1px solid var(--border)' if not loop.last else 'none' }};">
+                <span class="badge badge-grade-{{ gid }}" style="min-width:24px;justify-content:center;">{{ gid }}</span>
+                <div style="width:8px;height:8px;border-radius:50%;background:{{ gcolor }};flex-shrink:0;box-shadow:0 0 6px {{ gcolor }};"></div>
+                <span style="font-size:.82rem;font-weight:700;color:{{ gcolor }};">{{ gname }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const input = document.getElementById('fileInput'), zone = document.getElementById('dropZone');
+const prev = document.getElementById('filePreview'), thumb = document.getElementById('imgThumb');
+const nameEl = document.getElementById('fileName'), sizeEl = document.getElementById('fileSize');
+input.addEventListener('change', function() {
+    if (!this.files.length) return;
+    const f = this.files[0];
+    nameEl.textContent = f.name; sizeEl.textContent = (f.size/1024).toFixed(1)+' KB';
+    prev.style.display = 'block'; zone.style.borderColor = 'var(--success)';
+    const rd = new FileReader(); rd.onload = e => thumb.src = e.target.result; rd.readAsDataURL(f);
+});
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); });
+document.getElementById('scanForm').addEventListener('submit', () => {
+    const btn = document.getElementById('analyzeBtn');
+    btn.innerHTML = '⏳ Analyzing…'; btn.disabled = true;
+});
+</script>
+{% endblock %}

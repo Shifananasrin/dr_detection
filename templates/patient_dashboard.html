@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — RetinaAI{% endblock %}
+{% block extra_styles %}
+.scan-row-item { display:flex;align-items:center;gap:1rem;padding:.85rem 1.25rem;border-bottom:1px solid var(--border);cursor:pointer;transition:var(--ease); }
+.scan-row-item:last-child { border-bottom:none; }
+.scan-row-item:hover { background:var(--glass); }
+{% endblock %}
+{% block content %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set latest = scans[0] if scans else none %}
+
+<!-- Hero -->
+<div style="background:radial-gradient(ellipse 70% 50% at 0% 50%,rgba(0,229,204,.09) 0%,transparent 60%),linear-gradient(135deg,var(--surface),var(--deep));border:1px solid var(--border);border-radius:var(--r-2xl);padding:2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;" class="fade-in">
+    <div style="display:flex;align-items:center;gap:1.25rem;position:relative;z-index:1;">
+        <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--cyan-dim));display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:var(--obsidian);flex-shrink:0;box-shadow:0 0 20px var(--cyan-glow);">{{ current_user.name[0].upper() }}</div>
+        <div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.9rem;color:var(--text-100);letter-spacing:-.02em;margin-bottom:.25rem;">Welcome back, {{ current_user.name.split()[0] }}</div>
+            <p style="color:var(--text-400);font-size:.85rem;">{{ scans|length }} retinal scan{{ 's' if scans|length != 1 else '' }} on record{% if profile and profile.diabetes_type %} &nbsp;·&nbsp; {{ profile.diabetes_type }}{% endif %}</p>
+        </div>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.6rem;flex-wrap:wrap;">
+        <a href="/scan/new" class="btn btn-lg">🔬 New Scan</a>
+        <a href="/profile" class="btn btn-ghost">Edit Profile</a>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:8rem;opacity:.04;pointer-events:none;">👁</div>
+</div>
+
+<!-- Stats -->
+<div class="stat-grid fade-in delay-1">
+    <div class="stat-card"><div class="stat-label">Total Scans</div><div class="stat-value">{{ scans|length }}</div><div class="stat-sub">Retinal analyses</div></div>
+    <div class="stat-card"><div class="stat-label">Pending Review</div><div class="stat-value" style="color:var(--warning);">{{ scans|selectattr('status','equalto','pending')|list|length }}</div><div class="stat-sub">Awaiting doctor</div></div>
+    {% if latest and latest.risk_score is not none %}
+    <div class="stat-card"><div class="stat-label">Latest Risk</div><div class="stat-value" style="color:{% if latest.risk_score < 30 %}var(--g0){% elif latest.risk_score < 60 %}var(--warning){% else %}var(--danger){% endif %};">{{ latest.risk_score }}</div><div class="stat-sub">Score /100</div></div>
+    {% else %}
+    <div class="stat-card"><div class="stat-label">Risk Score</div><div class="stat-value" style="color:var(--text-500);">—</div><div class="stat-sub"><a href="/profile" style="color:var(--cyan);font-size:.74rem;">Complete profile</a></div></div>
+    {% endif %}
+    <div class="stat-card"><div class="stat-label">Reviewed</div><div class="stat-value" style="color:var(--success);">{{ scans|selectattr('status','ne','pending')|list|length }}</div><div class="stat-sub">Doctor validated</div></div>
+</div>
+
+{% if not profile or not profile.diabetes_type %}
+<div class="alert alert-warning fade-in delay-2"><span class="alert-icon">⚠️</span><div><strong>Profile incomplete.</strong> <a href="/profile" style="color:var(--gold);font-weight:700;">Complete your medical profile →</a> to unlock personalised risk scores.</div></div>
+{% endif %}
+
+{% if notifications %}
+{% for n in notifications %}
+<div class="alert alert-info fade-in"><span class="alert-icon">🔔</span><div>{{ n.message }}</div></div>
+{% endfor %}
+{% endif %}
+
+<div class="grid-2 fade-in delay-2">
+    <div>
+        <!-- Latest Scan -->
+        {% if latest %}
+        {% set gcolor = gc[latest.ai_class_id] if latest.ai_class_id is not none else '#4d9fff' %}
+        <div class="card" style="border-color:{{ gcolor }}22;margin-bottom:1.25rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <h2 style="margin-bottom:0;">Latest Scan</h2>
+                <span class="status-badge status-{{ latest.status }}">{{ latest.status }}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:1.25rem;">
+                {% if latest.image_url %}
+                <img src="{{ latest.image_url }}" style="width:88px;height:88px;border-radius:var(--r-md);object-fit:cover;border:1px solid var(--border);flex-shrink:0;">
+                {% else %}
+                <div style="width:88px;height:88px;border-radius:var(--r-md);background:var(--deep);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0;">👁</div>
+                {% endif %}
+                <div style="flex:1;">
+                    <div style="font-family:'DM Serif Display',serif;font-size:1.4rem;color:{{ gcolor }};margin-bottom:.3rem;">{{ latest.ai_class_name or '—' }}</div>
+                    <div style="font-size:.78rem;color:var(--text-400);">Confidence: <strong style="color:var(--text-200);">{{ "%.1f%%"|format(latest.ai_confidence) if latest.ai_confidence else '—' }}</strong></div>
+                    <div style="font-size:.78rem;color:var(--text-400);margin-top:2px;">{{ latest.uploaded_at[:10] if latest.uploaded_at else '' }}</div>
+                </div>
+            </div>
+            <a href="/scan/{{ latest.id }}" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:1rem;">View Full Report →</a>
+        </div>
+        {% endif %}
+
+        <!-- Scan History -->
+        <div class="card" style="padding:0;overflow:hidden;">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--deep);display:flex;align-items:center;justify-content:space-between;">
+                <h2 style="margin:0;font-size:.95rem;">Scan History</h2>
+                <a href="/scan/new" class="btn btn-outline" style="font-size:.72rem;padding:4px 10px;">+ New</a>
+            </div>
+            {% if scans %}
+            {% for scan in scans[:6] %}
+            <div class="scan-row-item" onclick="location.href='/scan/{{ scan.id }}'">
+                <div style="width:38px;height:38px;border-radius:var(--r-sm);background:var(--deep);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">👁</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:.82rem;color:{{ gc[scan.ai_class_id] if scan.ai_class_id is not none else 'var(--text-300)' }};">{{ scan.ai_class_name or 'Pending' }}</div>
+                    <div style="font-size:.72rem;color:var(--text-400);">{{ scan.uploaded_at[:10] if scan.uploaded_at else '' }}</div>
+                </div>
+                <span class="status-badge status-{{ scan.status }}">{{ scan.status }}</span>
+                <span style="color:var(--text-500);font-size:.8rem;">→</span>
+            </div>
+            {% endfor %}
+            {% if scans|length > 6 %}
+            <a href="/analytics" style="display:block;text-align:center;padding:.75rem;font-size:.78rem;color:var(--cyan);text-decoration:none;border-top:1px solid var(--border);">View all {{ scans|length }} scans →</a>
+            {% endif %}
+            {% else %}
+            <div style="text-align:center;padding:2.5rem 1rem;"><div style="font-size:3rem;margin-bottom:.75rem;opacity:.25;">🔬</div><p style="color:var(--text-400);font-size:.85rem;margin-bottom:1rem;">No scans yet.</p><a href="/scan/new" class="btn">Upload First Scan →</a></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div>
+        <!-- Progression -->
+        {% if progression != '[]' %}
+        <div class="card"><h2>📈 Disease Progression</h2><div style="height:150px;"><canvas id="progChart"></canvas></div></div>
+        {% endif %}
+
+        <!-- Quick Actions -->
+        <div class="card"><h2>Quick Actions</h2><div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+            {% for href, icon, label in [('/scan/new','🔬','New Scan'),('/appointments/book','📅','Book Appt'),('/documents','📎','Documents'),('/analytics','📊','Analytics'),('/profile','👤','My Profile'),('/about','ℹ️','About AI')] %}
+            <a href="{{ href }}" style="display:flex;align-items:center;gap:.6rem;padding:.75rem;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--border);text-decoration:none;color:var(--text-200);font-size:.8rem;font-weight:600;transition:var(--ease);" onmouseover="this.style.borderColor='rgba(0,229,204,.3)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-200)'"><span style="font-size:1.1rem;">{{ icon }}</span>{{ label }}</a>
+            {% endfor %}
+        </div></div>
+
+        <!-- Latest Notifications -->
+        <div class="card" style="border-color:{{ 'rgba(0,229,204,.3)' if notifications else 'var(--border)' }};">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <h2 style="margin:0;">🔔 Notifications</h2>
+                <a href="/notifications" style="font-size:.72rem;color:var(--cyan);text-decoration:none;font-weight:700;">View All</a>
+            </div>
+            {% if notifications %}
+                {% for n in notifications[:5] %}
+                <div style="display:flex;gap:.85rem;align-items:flex-start;padding:.75rem 0;border-bottom:{{ '1px solid var(--border)' if not loop.last else 'none' }};">
+                    <div style="width:34px;height:34px;border-radius:var(--r-sm);background:var(--glass);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">
+                         {% if 'scan' in n.message.lower() %}🔬{% elif 'appointment' in n.message.lower() %}📅{% else %}🔔{% endif %}
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:.82rem;color:var(--text-100);line-height:1.4;">{{ n.message }}</div>
+                        <div style="font-size:.7rem;color:var(--text-500);margin-top:2px;">{{ n.created_at[:16] }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center;padding:1.5rem 0;opacity:.4;">
+                    <p style="font-size:.8rem;">No new alerts.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+  s.onload = function(){ if(window._chartReady) window._chartReady(); };
+  s.onerror = function(){ console.warn('Chart.js CDN unavailable'); };
+  document.head.appendChild(s);
+})();
+</script>
+<script>
+window._chartReady = function() {
+const ctx = document.getElementById('progChart').getContext('2d');
+const gradient = ctx.createLinearGradient(0, 0, 0, 150);
+gradient.addColorStop(0, 'rgba(0, 229, 204, 0.2)');
+gradient.addColorStop(1, 'rgba(0, 229, 204, 0)');
+
+const prog = {{ progression|safe }};
+const GC = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'];
+const GN = ['No DR','Mild','Moderate','Severe','Prolif.'];
+const TIP = {backgroundColor:'#1a2440',titleColor:'#f0f4ff',bodyColor:'#8a9bb8',borderColor:'rgba(255,255,255,0.1)',borderWidth:1};
+
+if (prog.length > 0) {
+    new Chart(ctx, {
+        type:'line', 
+        data:{
+            labels:prog.map(p=>p.date),
+            datasets:[{
+                data:prog.map(p=>p.grade),
+                borderColor:'#00e5cc',
+                backgroundColor:gradient,
+                pointBackgroundColor:prog.map(p=>GC[p.grade]||'#4d9fff'),
+                pointBorderColor:'#060913',
+                pointBorderWidth:2,
+                pointRadius:5,
+                fill:true,
+                tension:.3
+            }]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{legend:{display:false},tooltip:TIP},
+            scales:{
+                y:{
+                    min:0,
+                    max:4,
+                    ticks:{stepSize:1,callback:v=>GN[v]||'',color:'#5a6e8a',font:{size:10}},
+                    grid:{color:'rgba(255,255,255,0.03)'}
+                },
+                x:{
+                    ticks:{color:'#5a6e8a',font:{size:10}},
+                    grid:{display:false}
+                }
+            }
+        }
+    });
+}
+};
+// If Chart.js already loaded (cached), call immediately
+if(typeof Chart !== "undefined") window._chartReady();
+</script>
+{% endblock %}

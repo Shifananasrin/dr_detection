@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Doctor Dashboard — RetinaAI{% endblock %}
+{% block extra_styles %}
+.pending-row { display:flex;align-items:center;gap:1rem;padding:.85rem 1.25rem;border-bottom:1px solid var(--border);cursor:pointer;transition:var(--ease); }
+.pending-row:last-child { border-bottom:none; }
+.pending-row:hover { background:var(--glass); }
+.thumb { width:46px;height:46px;border-radius:var(--r-sm);object-fit:cover;border:1px solid var(--border);flex-shrink:0;background:var(--deep);display:flex;align-items:center;justify-content:center;font-size:1.1rem; }
+{% endblock %}
+{% block content %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set gn = ['No DR','Mild','Moderate','Severe','Prolif.'] %}
+
+<!-- Hero -->
+<div style="background:radial-gradient(ellipse 60% 60% at 100% 50%,rgba(0,229,204,.07) 0%,transparent 70%),linear-gradient(135deg,var(--surface),var(--deep));border:1px solid var(--border);border-radius:var(--r-2xl);padding:2.25rem 2.75rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="display:inline-flex;align-items:center;gap:6px;background:var(--glass);border:1px solid rgba(0,229,204,.2);border-radius:100px;padding:3px 12px;font-size:.65rem;font-weight:700;color:var(--cyan);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.75rem;"><span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);animation:glowPulse 2s ease infinite;"></span>Clinical Dashboard</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:var(--text-100);letter-spacing:-.025em;margin-bottom:.3rem;">{{ current_user.name }}</div>
+        <p style="color:var(--text-400);font-size:.85rem;">{{ current_user.specialty or 'Physician' }} &nbsp;·&nbsp; <span style="color:{{ 'var(--warning)' if pending|length > 0 else 'var(--success)' }};">{{ pending|length }} scan{{ 's' if pending|length != 1 else '' }} pending review</span></p>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.6rem;flex-wrap:wrap;">
+        <a href="/appointments" class="btn btn-ghost">📅 Appointments</a>
+        <a href="/doctor/schedule" class="btn btn-ghost">⏱ Schedule</a>
+        <a href="/graphs" class="btn btn-lg">📈 Analytics →</a>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:7rem;opacity:.04;pointer-events:none;">🏥</div>
+</div>
+
+<!-- Stats -->
+<div class="stat-grid fade-in delay-1">
+    <div class="stat-card"><div class="stat-label">Pending Reviews</div><div class="stat-value" style="color:var(--warning);">{{ pending|length }}</div><div class="stat-sub">Need attention</div></div>
+    <div class="stat-card"><div class="stat-label">Total Reviewed</div><div class="stat-value" style="color:var(--cyan);">{{ reviewed|length }}</div><div class="stat-sub">Scans validated</div></div>
+    <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value" style="color:var(--success);">{{ reviewed|selectattr('status','equalto','approved')|list|length }}</div><div class="stat-sub">AI confirmed</div></div>
+    <div class="stat-card"><div class="stat-label">Modified</div><div class="stat-value" style="color:var(--g4);">{{ reviewed|selectattr('status','equalto','modified')|list|length }}</div><div class="stat-sub">Diagnosis changed</div></div>
+</div>
+
+<div class="grid-2 fade-in delay-2">
+    <!-- Pending Queue -->
+    <div>
+        <div class="card" style="padding:0;overflow:hidden;">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--deep);display:flex;align-items:center;justify-content:space-between;">
+                <h2 style="margin:0;">🔬 Review Queue</h2>
+                {% if pending|length > 0 %}<span class="status-badge status-pending">{{ pending|length }} pending</span>{% endif %}
+            </div>
+            {% if pending %}
+            {% for scan in pending %}
+            <div class="pending-row" onclick="location.href='/doctor/scan/{{ scan.id }}'">
+                <div class="thumb">{% if scan.image_url %}<img src="{{ scan.image_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">{% else %}👁{% endif %}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:.85rem;color:var(--text-100);">{{ scan.patient_name }}</div>
+                    <div style="font-size:.74rem;color:{{ gc[scan.ai_class_id] if scan.ai_class_id is not none else 'var(--text-400)' }};font-weight:600;">{{ scan.ai_class_name or 'Processing…' }}</div>
+                    <div style="font-size:.71rem;color:var(--text-500);">{{ scan.uploaded_at[:10] if scan.uploaded_at else '' }}</div>
+                </div>
+                {% if scan.ai_confidence %}<div style="font-size:.8rem;font-weight:700;color:var(--text-300);font-family:'JetBrains Mono',monospace;">{{ "%.0f"|format(scan.ai_confidence) }}%</div>{% endif %}
+                <span class="btn btn-outline" style="font-size:.72rem;padding:4px 10px;">Review →</span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align:center;padding:3rem 1rem;"><div style="font-size:3rem;margin-bottom:.75rem;opacity:.2;">✅</div><p style="color:var(--text-400);font-size:.88rem;">Queue empty — all caught up!</p></div>
+            {% endif %}
+        </div>
+
+        <!-- Recent Reviewed -->
+        {% if reviewed %}
+        <div class="card" style="padding:0;overflow:hidden;">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);background:var(--deep);">
+                <h2 style="margin:0;font-size:.95rem;">✓ Recently Reviewed</h2>
+            </div>
+            {% for scan in reviewed[:5] %}
+            <div class="pending-row" onclick="location.href='/scan/{{ scan.id }}'">
+                <div class="thumb">{% if scan.image_url %}<img src="{{ scan.image_url }}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">{% else %}👁{% endif %}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:700;font-size:.85rem;color:var(--text-200);">{{ scan.patient_name }}</div>
+                    <div style="font-size:.74rem;color:{{ gc[scan.doctor_class_id] if scan.doctor_class_id is not none else (gc[scan.ai_class_id] if scan.ai_class_id is not none else 'var(--text-400)') }};font-weight:600;">{{ scan.doctor_class_name or scan.ai_class_name or '—' }}</div>
+                </div>
+                <span class="status-badge status-{{ scan.status }}">{{ scan.status }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right: Actions + Notifications -->
+    <div>
+        <!-- Notifications -->
+        <div class="card" style="border-color:{{ 'rgba(0,229,204,.3)' if notifications else 'var(--border)' }};">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <h2 style="margin:0;">🔔 Notifications</h2>
+                <a href="/notifications" style="font-size:.72rem;color:var(--cyan);text-decoration:none;font-weight:700;">History →</a>
+            </div>
+            {% if notifications %}
+                {% for n in notifications[:5] %}
+                <div style="display:flex;gap:.85rem;align-items:flex-start;padding:.75rem 0;border-bottom:{{ '1px solid var(--border)' if not loop.last else 'none' }};">
+                    <div style="width:34px;height:34px;border-radius:var(--r-sm);background:var(--glass);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;">
+                         {% if 'scan' in n.message.lower() %}🔬{% elif 'appointment' in n.message.lower() %}📅{% else %}🔔{% endif %}
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:.82rem;color:var(--text-100);line-height:1.4;">{{ n.message }}</div>
+                        <div style="font-size:.7rem;color:var(--text-500);margin-top:2px;">{{ n.created_at[:16] }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center;padding:1.5rem 0;opacity:.4;">
+                    <p style="font-size:.8rem;">No new alerts.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;">
+                {% for href, icon, label in [('/appointments','📅','Appointments'),('/doctor/schedule','⏱','My Schedule'),('/analytics','📊','Analytics'),('/graphs','📈','AI Graphs'),('/about','ℹ️','About AI'),('/logout','🚪','Sign Out')] %}
+                <a href="{{ href }}" style="display:flex;align-items:center;gap:.6rem;padding:.75rem;border-radius:var(--r-md);background:var(--glass);border:1px solid var(--border);text-decoration:none;color:var(--text-200);font-size:.8rem;font-weight:600;transition:var(--ease);" onmouseover="this.style.borderColor='rgba(0,229,204,.3)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-200)'"><span style="font-size:1.1rem;">{{ icon }}</span>{{ label }}</a>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Grade Summary</h2>
+            {% set all_scans = pending + reviewed %}
+            {% set grade_counts = [0,0,0,0,0] %}
+            {% for gid in range(5) %}
+            {% set cnt = all_scans|selectattr('ai_class_id','equalto',gid)|list|length %}
+            <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:{{ '1px solid var(--border)' if not loop.last else 'none' }};">
+                <span class="badge badge-grade-{{ gid }}" style="min-width:24px;justify-content:center;">{{ gid }}</span>
+                <div style="font-size:.82rem;font-weight:700;color:{{ gc[gid] }};flex:1;">{{ gn[gid] }}</div>
+                <div style="flex:2;"><div class="progress-bar"><div class="progress-fill" style="width:{{ (cnt / all_scans|length * 100)|int if all_scans|length else 0 }}%;background:{{ gc[gid] }};"></div></div></div>
+                <div style="font-size:.8rem;font-weight:700;color:var(--text-400);min-width:24px;text-align:right;">{{ cnt }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

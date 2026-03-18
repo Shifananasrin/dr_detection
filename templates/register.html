@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Create Account — RetinaAI{% endblock %}
+{% block extra_styles %}
+main.page-wrap { padding: 0; max-width: 100%; }
+
+.auth-shell {
+    min-height: calc(100vh - 60px);
+    display: grid;
+    grid-template-columns: 1fr 520px;
+}
+@media(max-width: 960px) {
+    .auth-shell { grid-template-columns: 1fr; }
+    .auth-left  { display: none; }
+}
+
+.auth-left {
+    position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse 80% 70% at 20% 50%,
+        rgba(0,229,204,.11) 0%, transparent 65%), var(--deep);
+}
+.auth-left::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+        linear-gradient(rgba(0,229,204,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,204,.04) 1px, transparent 1px);
+    background-size: 52px 52px;
+}
+.auth-left-inner {
+    position: relative; z-index: 1;
+    max-width: 440px; padding: 4rem 3rem;
+}
+.auth-left-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(0,229,204,.08); border: 1px solid rgba(0,229,204,.2);
+    border-radius: 100px; padding: 4px 14px;
+    font-size: .68rem; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--cyan); margin-bottom: 2rem;
+}
+.auth-left-badge-dot { width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan); }
+.auth-left h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2.4rem; line-height: 1.1;
+    letter-spacing: -.03em; color: var(--text-100); margin-bottom: 1rem;
+}
+.auth-left h2 em { color: var(--cyan); font-style: italic; }
+.auth-left-desc { font-size: .9rem; color: var(--text-300); line-height: 1.75; margin-bottom: 2rem; }
+.auth-feat { display:flex;align-items:center;gap:10px;margin-bottom:.7rem;color:var(--text-300);font-size:.82rem;font-weight:600; }
+.auth-feat-icon { width:32px;height:32px;border-radius:8px;background:var(--glass-md);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0; }
+
+.auth-right {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border-left: 1px solid var(--border);
+    padding: 3rem 2rem;
+}
+.auth-form-box { width: 100%; max-width: 400px; }
+.auth-form-logo { font-family:'DM Serif Display',serif;font-size:1.5rem;color:var(--text-100);letter-spacing:-.02em;margin-bottom:1.5rem; }
+.auth-form-logo span { color:var(--cyan); }
+.auth-form-title { font-family:'DM Serif Display',serif;font-size:1.8rem;color:var(--text-100);letter-spacing:-.025em;margin-bottom:.3rem; }
+.auth-form-sub { font-size:.82rem;color:var(--text-400);margin-bottom:1.75rem; }
+
+/* Role selector */
+.role-grid { display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.25rem; }
+.role-card { position:relative; }
+.role-card input[type="radio"] { position:absolute;opacity:0;width:0;height:0; }
+.role-label {
+    display:flex;flex-direction:column;align-items:center;gap:.4rem;
+    padding:1rem .75rem;border-radius:var(--r-md);
+    border:2px solid var(--border);background:var(--deep);
+    cursor:pointer;transition:var(--ease);text-align:center;
+    font-size:.82rem;font-weight:700;color:var(--text-300);
+}
+.role-label:hover { border-color:rgba(0,229,204,.4);color:var(--text-100); }
+.role-card input:checked + .role-label {
+    border-color:var(--cyan);color:var(--cyan);
+    background:var(--cyan-halo);
+    box-shadow:0 0 16px rgba(0,229,204,.1);
+}
+.role-label-icon { font-size:1.4rem; }
+{% endblock %}
+
+{% block content %}
+<div class="auth-shell">
+
+    <!-- Left -->
+    <div class="auth-left">
+        <div class="auth-left-inner fade-in">
+            <div class="auth-left-badge">
+                <span class="auth-left-badge-dot"></span>
+                Join RetinaAI
+            </div>
+            <h2>Start Your <em>Free</em><br>Clinical AI Account</h2>
+            <p class="auth-left-desc">Get full access to AI-powered retinal screening, clinical analytics, doctor review workflows, and automated PDF reports.</p>
+            <div class="auth-feat fade-in delay-1"><div class="auth-feat-icon">🔬</div>Upload &amp; analyze retinal fundus images</div>
+            <div class="auth-feat fade-in delay-2"><div class="auth-feat-icon">📊</div>Track progression over multiple scans</div>
+            <div class="auth-feat fade-in delay-3"><div class="auth-feat-icon">👨‍⚕️</div>Get doctor review &amp; clinical validation</div>
+            <div class="auth-feat fade-in delay-4"><div class="auth-feat-icon">📄</div>Download clinical PDF reports</div>
+            <div class="auth-feat fade-in delay-5"><div class="auth-feat-icon">📅</div>Book specialist appointments</div>
+        </div>
+    </div>
+
+    <!-- Right -->
+    <div class="auth-right">
+        <div class="auth-form-box fade-in">
+            <div class="auth-form-logo">Retina<span>AI</span></div>
+            <div class="auth-form-title">Create Account</div>
+            <div class="auth-form-sub">Free forever · No credit card required</div>
+
+            {% if error %}
+            <div class="alert alert-danger" style="margin-bottom:1.25rem;">
+                <span class="alert-icon">❌</span><div>{{ error }}</div>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/register" id="regForm">
+                <!-- Role selector -->
+                <div class="form-group">
+                    <label>I am a…</label>
+                    <div class="role-grid">
+                        <div class="role-card">
+                            <input type="radio" name="role" id="rolePatient" value="patient" checked>
+                            <label class="role-label" for="rolePatient">
+                                <span class="role-label-icon">👤</span>
+                                Patient
+                            </label>
+                        </div>
+                        <div class="role-card">
+                            <input type="radio" name="role" id="roleDoctor" value="doctor">
+                            <label class="role-label" for="roleDoctor">
+                                <span class="role-label-icon">🏥</span>
+                                Doctor / Clinician
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="name" class="form-control" placeholder="Dr. Jane Smith" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>Email Address</label>
+                    <input type="email" name="email" class="form-control" placeholder="you@clinic.com" required>
+                </div>
+                <div class="form-group" id="specialtyGroup" style="display:none;">
+                    <label>Specialty</label>
+                    <select name="specialty" class="form-control">
+                        <option value="">— Select specialty —</option>
+                        <option value="Ophthalmology">Ophthalmology</option>
+                        <option value="Optometry">Optometry</option>
+                        <option value="Diabetology">Diabetology</option>
+                        <option value="Endocrinology">Endocrinology</option>
+                        <option value="Internal Medicine">Internal Medicine</option>
+                        <option value="General Practice">General Practice</option>
+                        <option value="Retinal Surgery">Retinal Surgery</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" id="pwd1" class="form-control" placeholder="Min. 6 characters" required minlength="6">
+                </div>
+                <div class="form-group" style="margin-bottom:1.5rem;">
+                    <label>Confirm Password</label>
+                    <input type="password" name="password2" id="pwd2" class="form-control" placeholder="••••••••" required>
+                    <div id="pwdErr" style="display:none;color:var(--danger);font-size:.74rem;margin-top:.4rem;">Passwords do not match</div>
+                </div>
+                <button type="submit" class="btn btn-lg" style="width:100%;justify-content:center;">Create Account →</button>
+            </form>
+
+            <p style="text-align:center;margin-top:1.5rem;font-size:.8rem;color:var(--text-400);">
+                Already have an account? <a href="/login" style="color:var(--cyan);font-weight:700;text-decoration:none;">Sign in →</a>
+            </p>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const roleDoctor = document.getElementById('roleDoctor');
+const rolePatient = document.getElementById('rolePatient');
+const specGroup = document.getElementById('specialtyGroup');
+function toggleSpec() {
+    specGroup.style.display = roleDoctor.checked ? 'block' : 'none';
+}
+roleDoctor.addEventListener('change', toggleSpec);
+rolePatient.addEventListener('change', toggleSpec);
+
+const pwd1 = document.getElementById('pwd1');
+const pwd2 = document.getElementById('pwd2');
+const pwdErr = document.getElementById('pwdErr');
+pwd2.addEventListener('input', () => {
+    pwdErr.style.display = (pwd2.value && pwd2.value !== pwd1.value) ? 'block' : 'none';
+});
+document.getElementById('regForm').addEventListener('submit', e => {
+    if (pwd1.value !== pwd2.value) { e.preventDefault(); pwdErr.style.display='block'; pwd2.focus(); }
+});
+</script>
+{% endblock %}

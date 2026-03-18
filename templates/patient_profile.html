@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Medical Profile — RetinaAI{% endblock %}
+{% block content %}
+<div style="background:radial-gradient(ellipse 60% 50% at 0% 50%,rgba(0,229,204,.08) 0%,transparent 60%),linear-gradient(135deg,var(--surface),var(--deep));border:1px solid var(--border);border-radius:var(--r-2xl);padding:2rem 2.5rem;margin-bottom:2rem;display:flex;align-items:center;gap:1.5rem;position:relative;overflow:hidden;" class="fade-in">
+    <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--cyan-dim));display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:var(--obsidian);flex-shrink:0;box-shadow:0 0 20px var(--cyan-glow);">👤</div>
+    <div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.85rem;color:var(--text-100);letter-spacing:-.02em;margin-bottom:.2rem;">Medical Profile</div>
+        <p style="color:var(--text-400);font-size:.82rem;">Complete your clinical parameters to unlock personalized AI risk scoring</p>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:6rem;opacity:.04;pointer-events:none;">🩺</div>
+</div>
+
+{% if not profile or not profile.diabetes_type %}
+<div class="alert alert-info fade-in delay-1"><span class="alert-icon">ℹ️</span><div><strong>Profile incomplete.</strong> Fill in your medical details to enable personalized risk scores with each scan.</div></div>
+{% endif %}
+
+<form method="POST" action="/profile">
+    {% for section_icon, section_title, section_delay, fields in [
+        ('👤', 'Personal Information', '1', []),
+        ('🩺', 'Diabetes Information', '2', []),
+        ('❤️', 'Cardiovascular & Lifestyle', '3', []),
+        ('📋', 'Additional Notes', '4', []),
+    ] %}
+    <div class="card fade-in delay-{{ section_delay }}" style="padding:0;overflow:hidden;margin-bottom:1.25rem;">
+        <div style="padding:.85rem 1.5rem;border-bottom:1px solid var(--border);background:var(--deep);display:flex;align-items:center;gap:.6rem;">
+            <span style="font-size:1.1rem;">{{ section_icon }}</span>
+            <h2 style="margin-bottom:0;font-size:.95rem;">{{ section_title }}</h2>
+        </div>
+        <div style="padding:1.5rem;">
+            {% if section_title == 'Personal Information' %}
+            <div class="form-grid">
+                <div class="form-group"><label>Date of Birth</label><input type="date" name="date_of_birth" class="form-control" value="{{ profile.date_of_birth if profile and profile.date_of_birth else '' }}"></div>
+                <div class="form-group"><label>Gender</label><select name="gender" class="form-control"><option value="">Select</option>{% for g in ['Male','Female','Other','Prefer not to say'] %}<option value="{{ g }}" {{ 'selected' if profile and profile.gender == g }}>{{ g }}</option>{% endfor %}</select></div>
+            </div>
+            {% elif section_title == 'Diabetes Information' %}
+            <div style="background:var(--cyan-halo);border:1px solid rgba(0,229,204,.15);border-radius:var(--r-md);padding:.85rem 1.1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.85rem;"><span style="font-size:1.3rem;">📊</span><div><div style="font-size:.78rem;font-weight:700;color:var(--cyan);">Risk Score Impact</div><div style="font-size:.73rem;color:var(--text-400);">HbA1c, duration, and insulin use are the strongest predictors of DR progression.</div></div></div>
+            <div class="form-grid">
+                <div class="form-group"><label>Diabetes Type</label><select name="diabetes_type" class="form-control"><option value="">Select type</option>{% for t in ['Type 1','Type 2','Gestational','LADA','MODY','Other'] %}<option value="{{ t }}" {{ 'selected' if profile and profile.diabetes_type == t }}>{{ t }}</option>{% endfor %}</select></div>
+                <div class="form-group"><label>Duration (years)</label><input type="number" name="diabetes_duration" class="form-control" step="0.5" min="0" max="80" placeholder="8" value="{{ profile.diabetes_duration if profile and profile.diabetes_duration else '' }}"></div>
+                <div class="form-group"><label>HbA1c (%)</label><input type="number" name="hba1c" class="form-control" step="0.1" min="3" max="20" placeholder="7.4" value="{{ profile.hba1c if profile and profile.hba1c else '' }}"></div>
+                <div class="form-group" style="display:flex;flex-direction:column;justify-content:flex-end;"><label>Insulin Therapy</label><label style="display:flex;align-items:center;gap:.5rem;padding:.65rem;background:var(--deep);border:1px solid var(--border);border-radius:var(--r-md);cursor:pointer;text-transform:none;font-size:.875rem;color:var(--text-300);font-weight:400;letter-spacing:0;"><input type="checkbox" name="insulin_use" id="ii" {{ 'checked' if profile and profile.insulin_use }} style="width:16px;height:16px;accent-color:var(--cyan);">Currently on insulin therapy</label></div>
+            </div>
+            {% elif section_title == 'Cardiovascular & Lifestyle' %}
+            <div class="form-grid-3">
+                <div class="form-group"><label>Systolic BP (mmHg)</label><input type="number" name="systolic_bp" class="form-control" min="70" max="220" placeholder="130" value="{{ profile.systolic_bp if profile and profile.systolic_bp else '' }}"></div>
+                <div class="form-group"><label>Diastolic BP (mmHg)</label><input type="number" name="diastolic_bp" class="form-control" min="40" max="130" placeholder="85" value="{{ profile.diastolic_bp if profile and profile.diastolic_bp else '' }}"></div>
+                <div class="form-group"><label>Cholesterol (mmol/L)</label><input type="number" name="cholesterol" class="form-control" step="0.1" min="1" max="15" placeholder="5.2" value="{{ profile.cholesterol if profile and profile.cholesterol else '' }}"></div>
+                <div class="form-group"><label>BMI (kg/m²)</label><input type="number" name="bmi" class="form-control" step="0.1" min="10" max="70" placeholder="27.4" value="{{ profile.bmi if profile and profile.bmi else '' }}"></div>
+                <div class="form-group"><label>Smoking Status</label><select name="smoking" class="form-control">{% for s in ['Never','Former','Current'] %}<option value="{{ s }}" {{ 'selected' if profile and profile.smoking == s }}>{{ s }}</option>{% endfor %}</select></div>
+            </div>
+            {% else %}
+            <div class="form-group" style="margin-bottom:1.5rem;"><label>Clinical Notes / Other Conditions</label><textarea name="notes" class="form-control" rows="3" placeholder="Other relevant medical history, medications, or conditions…">{{ profile.notes if profile and profile.notes else '' }}</textarea></div>
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+                <button type="submit" class="btn btn-lg" style="padding:10px 24px;">💾 Save Profile</button>
+                <a href="/dashboard" class="btn btn-ghost">Cancel</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</form>
+{% endblock %}

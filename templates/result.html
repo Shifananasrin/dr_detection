@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Prediction Result — RetinaAI{% endblock %}
+{% block extra_styles %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set gcolor = gc[result.class_id] if result.class_id is not none else '#4d9fff' %}
+.prob-row { display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border); }
+.prob-row:last-child { border:none; }
+.prob-label { width:110px;font-size:.8rem;font-weight:600;flex-shrink:0;color:var(--text-300); }
+.prob-track { flex:1;height:6px;background:var(--deep);border-radius:3px;overflow:hidden; }
+.prob-fill  { height:100%;border-radius:3px; }
+.prob-val   { width:42px;text-align:right;font-size:.78rem;font-weight:700;color:var(--text-400); }
+.prob-row.hl .prob-label { color:{{ gcolor }};font-weight:800; }
+.prob-row.hl .prob-val   { color:{{ gcolor }}; }
+{% endblock %}
+{% block content %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set gcolor = gc[result.class_id] if result.class_id is not none else '#4d9fff' %}
+{% set gnames = ['No Diabetic Retinopathy','Mild DR','Moderate DR','Severe DR','Proliferative DR'] %}
+
+<!-- Gradient header hero -->
+<div style="background:linear-gradient(135deg,{{ gcolor }}14 0%,var(--surface) 100%);border:1px solid {{ gcolor }}25;border-left:5px solid {{ gcolor }};border-radius:var(--r-xl);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:{{ gcolor }};margin-bottom:.5rem;">🤖 AI Prediction · EfficientNetB0 + Grad-CAM</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:2.2rem;color:{{ gcolor }};letter-spacing:-.025em;line-height:1;margin-bottom:.6rem;">{{ result.class_name or 'Unknown' }}</div>
+        <div style="display:flex;align-items:center;gap:1rem;">
+            <div style="font-family:'DM Serif Display',serif;font-size:1.8rem;color:{{ gcolor }};">{{ "%.1f"|format(result.confidence) }}%</div>
+            <div style="flex:1;max-width:160px;">
+                <div class="progress-bar" style="height:8px;"><div class="progress-fill" style="width:{{ result.confidence }}%;background:{{ gcolor }};"></div></div>
+                <div style="font-size:.68rem;color:var(--text-500);margin-top:2px;">Confidence</div>
+            </div>
+        </div>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.6rem;flex-wrap:wrap;">
+        <a href="/" class="btn btn-ghost">← Try Again</a>
+        {% if current_user %}<a href="/scan/new" class="btn">🔬 Save to Record</a>{% else %}<a href="/register" class="btn">Create Account →</a>{% endif %}
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:7rem;opacity:.05;">{{ ['🟢','🔵','🟡','🔴','🟣'][result.class_id] if result.class_id is not none else '🔬' }}</div>
+</div>
+
+<!-- Recommendation banner -->
+<div style="padding:.85rem 1.25rem;border-radius:var(--r-md);margin-bottom:2rem;border:1px solid {{ gcolor }}22;background:{{ gcolor }}08;display:flex;align-items:flex-start;gap:10px;font-size:.88rem;" class="fade-in delay-1">
+    {% if result.class_id == 0 %}✅ <span style="color:#4ef0c4;"><strong>No DR detected.</strong> Annual diabetic eye screening recommended to monitor for future changes.</span>
+    {% elif result.class_id == 1 %}ℹ️ <span style="color:#80bbff;"><strong>Mild DR.</strong> Monitor closely. Optimize blood glucose and blood pressure. Follow-up within 12 months.</span>
+    {% elif result.class_id == 2 %}⚠️ <span style="color:#f5c060;"><strong>Moderate DR.</strong> Ophthalmology consult recommended. Follow-up in 6 months. Consider referral if HbA1c &gt; 8%.</span>
+    {% elif result.class_id == 3 %}🔴 <span style="color:#f87878;"><strong>Severe DR.</strong> Urgent ophthalmology referral required. Risk of progression to proliferative disease is high.</span>
+    {% else %}🚨 <span style="color:#f87878;"><strong>Proliferative DR.</strong> Immediate specialist referral. Laser therapy or anti-VEGF injections may be required.</span>
+    {% endif %}
+</div>
+
+<div class="grid-2 fade-in delay-2">
+    <!-- Probabilities -->
+    <div class="card card-glow">
+        <h2>Grade Probabilities</h2>
+        {% set colors=['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+        {% set names=['No DR','Mild','Moderate','Severe','Prolif.'] %}
+        {% if result.probabilities %}
+        {% for i in range(5) %}
+        {% set prob = result.probabilities[i] * 100 %}
+        <div class="prob-row {{ 'hl' if i == result.class_id else '' }}">
+            <div class="prob-label">{{ names[i] }}</div>
+            <div class="prob-track"><div class="prob-fill" style="width:{{ prob }}%;background:{{ colors[i] }};"></div></div>
+            <div class="prob-val">{{ "%.1f"|format(prob) }}%</div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div style="margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border);">
+            <div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-500);margin-bottom:.6rem;">ETDRS Scale</div>
+            {% for i, c, n in [(0,'#00c48c','No DR'),(1,'#4d9fff','Mild'),(2,'#f0a030','Moderate'),(3,'#f04040','Severe'),(4,'#b060f0','Proliferative')] %}
+            <div style="display:flex;align-items:center;gap:.6rem;padding:.22rem 0;">
+                <span class="badge badge-grade-{{ i }}" style="min-width:24px;justify-content:center;">{{ i }}</span>
+                <div style="width:8px;height:8px;border-radius:50%;background:{{ c }};box-shadow:0 0 5px {{ c }};flex-shrink:0;"></div>
+                <span style="font-size:.8rem;font-weight:700;color:{{ c }};">{{ n }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Images + CTA -->
+    <div>
+        {% if result.image_url or result.gradcam_url %}
+        <div class="card">
+            <h2>Retinal Visualization</h2>
+            <div class="form-grid">
+                {% if result.image_url %}<div><div class="section-chip">Original Fundus</div><div class="img-frame"><img src="{{ result.image_url }}" alt="Fundus"></div></div>{% endif %}
+                {% if result.gradcam_url %}<div><div class="section-chip">Grad-CAM Heatmap</div><div class="img-frame"><img src="{{ result.gradcam_url }}" alt="Grad-CAM"></div></div>{% endif %}
+            </div>
+            <p style="font-size:.73rem;color:var(--text-500);margin-top:.75rem;"><strong style="color:var(--danger);">Red</strong> = high AI attention &nbsp;·&nbsp; <span style="color:var(--info);">Blue</span> = lower influence</p>
+        </div>
+        {% endif %}
+
+        {% if current_user %}
+        <div class="card" style="background:var(--cyan-halo);border-color:rgba(0,229,204,.2);">
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+                <span style="font-size:1.4rem;">💡</span>
+                <div>
+                    <h3 style="color:var(--cyan);margin-bottom:.3rem;">Save This Result</h3>
+                    <p style="font-size:.82rem;color:var(--text-300);margin-bottom:.75rem;">Upload via your dashboard for a doctor review, risk score, and full PDF clinical report.</p>
+                    <a href="/scan/new" class="btn" style="font-size:.82rem;">🔬 Upload for Full Report →</a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="card" style="background:var(--glass);border-color:rgba(0,229,204,.15);">
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+                <span style="font-size:1.4rem;">🔒</span>
+                <div>
+                    <h3 style="color:var(--text-100);margin-bottom:.3rem;">Get a Full Clinical Report</h3>
+                    <p style="font-size:.82rem;color:var(--text-300);margin-bottom:.75rem;">Create a free account to save results, get a risk score, doctor validation, and a PDF report.</p>
+                    <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+                        <a href="/register" class="btn" style="font-size:.82rem;">Create Free Account →</a>
+                        <a href="/login" class="btn btn-ghost" style="font-size:.82rem;">Sign In</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

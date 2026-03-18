@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Schedule — RetinaAI{% endblock %}
+{% block content %}
+
+<!-- Header -->
+<div style="background:linear-gradient(135deg,#064e3b,#065f46 50%,#0b6b5e);border-radius:var(--r-2xl);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(0,229,204,.8);margin-bottom:.4rem;">🗓 Doctor Tools</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.9rem;color:#fff;letter-spacing:-.025em;margin-bottom:.25rem;">Schedule &amp; Workload</div>
+        <p style="color:rgba(255,255,255,.65);font-size:.82rem;">Availability · Review queue · Performance analytics</p>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.5rem;flex-wrap:wrap;">
+        <a href="/appointments" class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);font-size:.8rem;">📅 Appointments</a>
+        <a href="/doctor" class="btn" style="background:#fff;color:#065f46;font-size:.8rem;">← Dashboard</a>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:6rem;opacity:.07;">🗓</div>
+</div>
+
+<!-- Stats -->
+<div class="stat-grid fade-in delay-1">
+    <div class="stat-card">
+        <div class="stat-label">Total Reviews</div>
+        <div class="stat-value">{{ workload.total_reviewed | default(0) }}</div>
+        <div class="stat-sub">Scans validated</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Today's Appts</div>
+        <div class="stat-value" style="color:var(--cyan);">{{ workload.appt_today | default(0) }}</div>
+        <div class="stat-sub">Scheduled</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Upcoming</div>
+        <div class="stat-value" style="color:var(--g0);">{{ workload.appt_upcoming | default(0) }}</div>
+        <div class="stat-sub">Future appts</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Avg Turnaround</div>
+        <div class="stat-value" style="font-size:1.3rem;">
+            {% if workload.avg_turnaround_hrs %}{{ workload.avg_turnaround_hrs }}h{% else %}—{% endif %}
+        </div>
+        <div class="stat-sub">Hours / review</div>
+    </div>
+</div>
+
+<div class="grid-2 fade-in delay-2">
+
+    <!-- LEFT COLUMN -->
+    <div>
+        <!-- Today's schedule -->
+        <div class="card card-glow" style="margin-bottom:1.25rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+                <h2 style="margin-bottom:0;">Today's Schedule</h2>
+                <span class="section-chip">{{ today }}</span>
+            </div>
+            {% if today_appts %}
+                {% for a in today_appts %}
+                <div style="display:flex;align-items:center;gap:.85rem;padding:.7rem .9rem;border-radius:var(--r-md);border:1px solid var(--border);background:var(--deep);margin-bottom:.5rem;cursor:pointer;transition:var(--ease);"
+                     onclick="location.href='/appointments/{{ a.id }}'"
+                     onmouseover="this.style.borderColor='rgba(0,229,204,.3)'"
+                     onmouseout="this.style.borderColor='var(--border)'">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:700;color:var(--cyan);min-width:44px;">
+                        {{ a.appointment_time[:5] if a.appointment_time else '—' }}
+                    </div>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:.85rem;color:var(--text-100);">{{ a.patient_name }}</div>
+                        <div style="font-size:.73rem;color:var(--text-400);">{{ a.type }}</div>
+                    </div>
+                    <span class="status-badge status-{{ a.status }}">{{ a.status }}</span>
+                    <a href="/appointments/{{ a.id }}" class="btn btn-ghost" style="font-size:.7rem;padding:4px 9px;" onclick="event.stopPropagation()">View</a>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div style="text-align:center;padding:2rem;">
+                    <div style="font-size:2.5rem;margin-bottom:.5rem;opacity:.25;">☀️</div>
+                    <p style="color:var(--text-400);font-size:.85rem;">No appointments today.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Weekly availability form -->
+        <div class="card">
+            <h2>Weekly Availability</h2>
+            <p style="font-size:.8rem;color:var(--text-400);margin-bottom:1.25rem;">Configure working hours and patient capacity</p>
+            <div style="display:grid;grid-template-columns:1fr 90px 90px 56px 38px;gap:.35rem;padding:.35rem .4rem;border-bottom:1px solid var(--border);margin-bottom:.2rem;">
+                {% for h in ['Day','Opens','Closes','Max','On'] %}
+                <div style="font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-500);">{{ h }}</div>
+                {% endfor %}
+            </div>
+            <form method="POST" action="/doctor/schedule">
+                {% for day in day_names %}
+                {% set i = loop.index0 %}
+                {% set av = availability.get(i, {}) %}
+                <div style="display:grid;grid-template-columns:1fr 90px 90px 56px 38px;gap:.35rem;align-items:center;padding:.5rem .4rem;border-bottom:1px solid var(--border);transition:var(--ease);{{ 'opacity:.4;' if not av.get('is_active', 1) else '' }}" id="dr{{ i }}">
+                    <div style="font-size:.85rem;font-weight:700;color:var(--text-200);">{{ day }}</div>
+                    <input type="time" name="start_{{ i }}" class="form-control" style="padding:.3rem .4rem;font-size:.76rem;height:auto;" value="{{ av.get('start_time','09:00') }}">
+                    <input type="time" name="end_{{ i }}"   class="form-control" style="padding:.3rem .4rem;font-size:.76rem;height:auto;" value="{{ av.get('end_time','17:00') }}">
+                    <input type="number" name="max_{{ i }}" class="form-control" style="padding:.3rem .4rem;font-size:.76rem;height:auto;" min="1" max="50" value="{{ av.get('max_patients',10) }}">
+                    <div style="display:flex;justify-content:center;">
+                        <input type="checkbox" name="active_{{ i }}" id="act{{ i }}"
+                               {{ 'checked' if av.get('is_active', 1) else '' }}
+                               onchange="tglDay({{ i }}, this.checked)"
+                               style="width:17px;height:17px;accent-color:var(--cyan);cursor:pointer;">
+                    </div>
+                </div>
+                {% endfor %}
+                <div style="margin-top:1rem;">
+                    <button type="submit" class="btn">💾 Save Schedule</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+        <!-- Reviews This Week chart -->
+        <div class="card card-glow" style="margin-bottom:1.25rem;">
+            <h2>Reviews This Week</h2>
+            <div style="position:relative;height:160px;">
+                <canvas id="revChart"></canvas>
+                <div id="revEmpty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:.5rem;">
+                    <div style="font-size:2rem;opacity:.2;">📊</div>
+                    <div style="font-size:.8rem;color:var(--text-500);">No reviews this week yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grade distribution chart -->
+        <div class="card" style="margin-bottom:1.25rem;">
+            <h2>Grade Distribution</h2>
+            <div style="position:relative;height:160px;">
+                <canvas id="gradeChart"></canvas>
+                <div id="gradeEmpty" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:.5rem;">
+                    <div style="font-size:2rem;opacity:.2;">🎯</div>
+                    <div style="font-size:.8rem;color:var(--text-500);">No reviewed scans yet</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance grid -->
+        <div class="card" style="margin-bottom:1.25rem;">
+            <h2>Performance</h2>
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;">
+                {% for val, label, color in [
+                    (workload.approved,         'Approved',    'var(--success)'),
+                    (workload.modified,         'Modified',    'var(--warning)'),
+                    (workload.pending_assigned, 'In Queue',    'var(--info)'),
+                    (workload.appt_total,       'Total Appts', 'var(--text-300)')
+                ] %}
+                <div class="stat-card" style="text-align:center;padding:.85rem;">
+                    <div class="stat-label">{{ label }}</div>
+                    <div class="stat-value" style="font-size:1.6rem;color:{{ color }};">{{ val | default(0) }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Team workload -->
+        {% if all_doctors_load | length > 1 %}
+        {% set max_r = namespace(val=1) %}
+        {% for doc in all_doctors_load %}
+            {% if doc.total_reviews > max_r.val %}{% set max_r.val = doc.total_reviews %}{% endif %}
+        {% endfor %}
+        <div class="card">
+            <h2>Team Workload</h2>
+            {% for doc in all_doctors_load %}
+            <div style="margin-bottom:.85rem;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:.3rem;">
+                    <span style="font-size:.82rem;font-weight:{{ '800' if doc.id == current_user.id else '600' }};color:{{ 'var(--cyan)' if doc.id == current_user.id else 'var(--text-200)' }};">
+                        {{ doc.name }}{% if doc.id == current_user.id %} <span style="font-size:.68rem;opacity:.6;">(you)</span>{% endif %}
+                    </span>
+                    <span style="font-size:.78rem;color:var(--text-400);">{{ doc.total_reviews }}</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width:{{ ((doc.total_reviews / max_r.val) * 100) | round if max_r.val > 0 else 0 }}%;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- tgl must be globally accessible - NOT inside any async callback -->
+<script>
+function tglDay(i, active) {
+    var row = document.getElementById('dr' + i);
+    if (row) row.style.opacity = active ? '1' : '.4';
+}
+</script>
+
+<!-- Load Chart.js synchronously so charts render immediately -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script>
+(function() {
+    var DR_DATA = {{ daily_reviews | safe }};
+    var GD_DATA = {{ grade_dist | safe }};
+    var GN = ['No DR','Mild','Moderate','Severe','Prolif.'];
+    var GC = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'];
+    var TIP = {
+        backgroundColor:'#1a2440', titleColor:'#f0f4ff',
+        bodyColor:'#8a9bb8', borderColor:'rgba(255,255,255,0.1)', borderWidth:1
+    };
+
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js unavailable — showing empty states');
+        ['rev','grade'].forEach(function(id) {
+            var el = document.getElementById(id + 'Empty');
+            if (el) { el.style.display = 'flex'; }
+            var canvas = document.getElementById(id + 'Chart');
+            if (canvas) { canvas.style.display = 'none'; }
+        });
+        return;
+    }
+
+    Chart.defaults.color = '#5a6e8a';
+    Chart.defaults.font.family = "'Outfit', sans-serif";
+
+    // Reviews This Week bar chart
+    try {
+        var hasReviews = DR_DATA.some(function(d) { return d.cnt > 0; });
+        if (!hasReviews) {
+            document.getElementById('revEmpty').style.display = 'flex';
+            document.getElementById('revChart').style.display = 'none';
+        } else {
+            new Chart(document.getElementById('revChart'), {
+                type: 'bar',
+                data: {
+                    labels: DR_DATA.map(function(d) { return d.day; }),
+                    datasets: [{
+                        label: 'Reviews',
+                        data: DR_DATA.map(function(d) { return d.cnt; }),
+                        backgroundColor: DR_DATA.map(function(d) {
+                            return d.cnt > 0 ? 'rgba(0,229,204,.35)' : 'rgba(255,255,255,.05)';
+                        }),
+                        borderColor: DR_DATA.map(function(d) {
+                            return d.cnt > 0 ? '#00e5cc' : 'rgba(255,255,255,.1)';
+                        }),
+                        borderWidth: 1.5,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: TIP },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { stepSize: 1, color: '#5a6e8a', font: { size: 10 } },
+                            grid: { color: 'rgba(255,255,255,0.05)' }
+                        },
+                        x: {
+                            ticks: { color: '#5a6e8a', font: { size: 10 } },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+    } catch(e) {
+        console.error('revChart error:', e);
+        document.getElementById('revEmpty').style.display = 'flex';
+        document.getElementById('revChart').style.display = 'none';
+    }
+
+    // Grade distribution doughnut
+    try {
+        if (!GD_DATA || GD_DATA.length === 0) {
+            document.getElementById('gradeEmpty').style.display = 'flex';
+            document.getElementById('gradeChart').style.display = 'none';
+        } else {
+            new Chart(document.getElementById('gradeChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: GD_DATA.map(function(g) { return GN[g.grade] || ('Grade ' + g.grade); }),
+                    datasets: [{
+                        data: GD_DATA.map(function(g) { return g.cnt; }),
+                        backgroundColor: GD_DATA.map(function(g) { return (GC[g.grade] || '#888') + '44'; }),
+                        borderColor:     GD_DATA.map(function(g) { return GC[g.grade] || '#888'; }),
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '65%',
+                    plugins: {
+                        legend: { position: 'right', labels: { color: '#8a9bb8', font: { size: 10 }, boxWidth: 10 } },
+                        tooltip: TIP
+                    }
+                }
+            });
+        }
+    } catch(e) {
+        console.error('gradeChart error:', e);
+        document.getElementById('gradeEmpty').style.display = 'flex';
+        document.getElementById('gradeChart').style.display = 'none';
+    }
+})();
+</script>
+{% endblock %}

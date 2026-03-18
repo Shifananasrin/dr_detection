@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}About — RetinaAI{% endblock %}
+{% block content %}
+<!-- Hero -->
+<div style="background:radial-gradient(ellipse 70% 60% at 50% 0%, rgba(0,229,204,.12) 0%, transparent 60%),linear-gradient(135deg,var(--surface),var(--deep));border:1px solid var(--border);border-radius:var(--r-2xl);padding:4rem 3rem;margin-bottom:2rem;text-align:center;position:relative;overflow:hidden;" class="fade-in">
+    <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(0,229,204,0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(0,229,204,0.03) 1px, transparent 1px);background-size:50px 50px;"></div>
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--cyan);margin-bottom:1rem;">🔬 Clinical AI Platform</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:3rem;color:var(--text-100);letter-spacing:-.03em;margin-bottom:.75rem;line-height:1.1;">About <em style="color:var(--cyan);">RetinaAI</em></div>
+        <p style="color:var(--text-300);font-size:1rem;line-height:1.75;max-width:540px;margin:0 auto;">AI-powered diabetic retinopathy detection with deep learning explainability — built for clinicians who need fast, trustworthy retinal screening.</p>
+    </div>
+    <div style="position:absolute;right:3rem;top:50%;transform:translateY(-50%);font-size:9rem;opacity:.04;pointer-events:none;">🔬</div>
+</div>
+
+<div class="grid-2 fade-in delay-1">
+    <div class="card card-glow">
+        <h2>Platform Overview</h2>
+        <p style="font-size:.88rem;color:var(--text-300);line-height:1.75;margin-bottom:1rem;">RetinaAI detects Diabetic Retinopathy from retinal fundus images using EfficientNetB0 deep learning with <strong style="color:var(--text-100);">Grad-CAM explainability</strong> — visual heatmaps showing exactly which retinal regions drove each prediction.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+            {% for icon, label in [('🤖','EfficientNetB0'),('🔥','Grad-CAM'),('📊','5-Grade DR'),('👨‍⚕️','Doctor Review'),('📄','PDF Reports'),('🔒','Secure Records')] %}
+            <div style="display:flex;align-items:center;gap:7px;padding:.5rem .65rem;background:var(--glass);border-radius:var(--r-sm);border:1px solid var(--border);font-size:.75rem;font-weight:600;color:var(--text-300);">
+                <span style="font-size:.9rem;">{{ icon }}</span>{{ label }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="card" style="background:radial-gradient(ellipse 80% 60% at 50% 100%,rgba(240,64,64,.05) 0%,transparent 60%),var(--surface);border-color:rgba(240,64,64,.15);">
+        <h2>Grad-CAM Explainability</h2>
+        <p style="font-size:.86rem;color:var(--text-300);line-height:1.7;margin-bottom:1rem;">Gradient-weighted Class Activation Mapping computes gradients of the predicted class score with respect to the last convolutional layer, generating a spatial heatmap highlighting diagnostic regions.</p>
+        <div style="display:flex;gap:.75rem;">
+            <div style="flex:1;padding:.75rem;background:rgba(240,64,64,.08);border:1px solid rgba(240,64,64,.15);border-radius:var(--r-sm);text-align:center;"><div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--danger);margin-bottom:3px;">Red Regions</div><div style="font-size:.76rem;color:var(--text-400);">High AI influence</div></div>
+            <div style="flex:1;padding:.75rem;background:rgba(77,159,255,.08);border:1px solid rgba(77,159,255,.15);border-radius:var(--r-sm);text-align:center;"><div style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--info);margin-bottom:3px;">Blue Regions</div><div style="font-size:.76rem;color:var(--text-400);">Lower influence</div></div>
+        </div>
+    </div>
+</div>
+
+<div class="card fade-in delay-2">
+    <h2>Clinical Workflow</h2>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:0;">
+        {% for i, icon, title, desc in [(1,'📤','Upload','Retinal fundus image'),(2,'🧠','Classify','EfficientNetB0'),(3,'🔥','Explain','Grad-CAM heatmap'),(4,'📊','Score','Clinical risk'),(5,'✍️','Review','Doctor validates'),(6,'📄','Report','PDF generated')] %}
+        <div style="text-align:center;padding:1rem .5rem;border-right:{{ '1px solid var(--border)' if not loop.last else 'none' }};">
+            <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--cyan-dim));display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:800;color:var(--obsidian);margin:0 auto .6rem;box-shadow:0 0 12px var(--cyan-glow);">{{ i }}</div>
+            <div style="font-size:.82rem;font-weight:700;color:var(--text-100);margin-bottom:2px;">{{ title }}</div>
+            <div style="font-size:.7rem;color:var(--text-500);">{{ desc }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="grid-2 fade-in delay-3">
+    <div class="card">
+        <h2>Model Architecture</h2>
+        <table>
+            <thead><tr><th>Component</th><th>Details</th></tr></thead>
+            <tbody>
+            {% for label, detail in [('Base Model','EfficientNetB0 — ImageNet pretrained'),('Training','2-phase: frozen → fine-tune top layers'),('Input','224 × 224 × 3 RGB fundus image'),('Classes','5 — No DR / Mild / Moderate / Severe / Prolif.'),('Optimizer','Adam · LR 1e-3 → 1e-5 with ReduceLROnPlateau'),('Loss','Categorical Crossentropy + class weights'),('Augmentation','Rotation, flip, zoom, brightness, shear'),('Regularization','Dropout 0.5/0.4/0.3 + L2 + BatchNorm')] %}
+            <tr><td style="font-weight:700;color:var(--cyan);white-space:nowrap;">{{ label }}</td><td style="color:var(--text-300);font-size:.82rem;">{{ detail }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div>
+        <div class="card">
+            <h2>Tech Stack</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem;">
+                {% for tech in ['🧠 TensorFlow','⚡ Keras','🌐 Flask','📷 OpenCV','🖼️ Pillow','📊 Matplotlib','🐍 Python 3','💾 SQLite','📈 Chart.js','📄 ReportLab'] %}
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:100px;font-size:.75rem;font-weight:600;background:var(--glass-md);border:1px solid var(--border);color:var(--text-300);">{{ tech }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="card" style="background:rgba(240,64,64,.06);border-color:rgba(240,64,64,.15);">
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+                <span style="font-size:1.3rem;">⚠️</span>
+                <div>
+                    <h3 style="color:var(--danger);margin-bottom:.35rem;">Medical Disclaimer</h3>
+                    <p style="font-size:.82rem;color:rgba(240,100,100,.8);line-height:1.65;">This tool is for <strong>educational and research purposes only</strong>. Not a substitute for professional medical diagnosis. Always consult a qualified ophthalmologist.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="fade-in delay-4">
+    <a href="{{ '/doctor' if current_user and current_user.role == 'doctor' else '/dashboard' if current_user else '/' }}" class="btn btn-ghost">← Back</a>
+</div>
+{% endblock %}

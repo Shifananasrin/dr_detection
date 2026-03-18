@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Scan #{{ scan.id }} — RetinaAI{% endblock %}
+{% block extra_styles %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set gcolor = gc[scan.ai_class_id] if scan.ai_class_id is not none else '#4d9fff' %}
+.prob-row { display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border); }
+.prob-row:last-child { border:none; }
+.prob-label { width:110px;font-size:.8rem;font-weight:600;flex-shrink:0;color:var(--text-300); }
+.prob-track { flex:1;height:6px;background:var(--deep);border-radius:3px;overflow:hidden; }
+.prob-fill  { height:100%;border-radius:3px; }
+.prob-val   { width:42px;text-align:right;font-size:.78rem;font-weight:700;color:var(--text-400); }
+.prob-row.hl .prob-label { color:{{ gcolor }};font-weight:800; }
+.prob-row.hl .prob-val   { color:{{ gcolor }}; }
+{% endblock %}
+{% block content %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set gcolor = gc[scan.ai_class_id] if scan.ai_class_id is not none else '#4d9fff' %}
+{% set gnames = ['No Diabetic Retinopathy','Mild DR','Moderate DR','Severe DR','Proliferative DR'] %}
+
+<!-- Header -->
+<div style="background:linear-gradient(135deg,{{ gcolor }}12 0%,var(--surface) 100%);border:1px solid {{ gcolor }}25;border-left:5px solid {{ gcolor }};border-radius:var(--r-xl);padding:2rem 2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:2rem;flex-wrap:wrap;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:{{ gcolor }};margin-bottom:.5rem;">🔬 Scan Report · #{{ scan.id }}</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:{{ gcolor }};letter-spacing:-.025em;margin-bottom:.3rem;">{{ scan.ai_class_name or '—' }}</div>
+        <div style="font-size:.85rem;color:var(--text-400);">{{ scan.patient_name }} &nbsp;·&nbsp; {{ scan.uploaded_at[:10] if scan.uploaded_at else '' }} &nbsp;·&nbsp; <span class="status-badge status-{{ scan.status }}">{{ scan.status }}</span></div>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;">
+        <div style="text-align:right;">
+            <div style="font-family:'DM Serif Display',serif;font-size:2.2rem;color:{{ gcolor }};">{{ "%.1f"|format(scan.ai_confidence) }}%</div>
+            <div style="font-size:.68rem;color:var(--text-500);text-transform:uppercase;letter-spacing:.07em;">Confidence</div>
+        </div>
+        {% if session.get('role') == 'doctor' %}
+        <a href="/doctor/scan/{{ scan.id }}" class="btn">✓ Review</a>
+        <a href="/doctor" class="btn btn-ghost">← Back</a>
+        {% else %}
+        <a href="/scan/new" class="btn btn-ghost">🔬 New Scan</a>
+        <a href="/dashboard" class="btn btn-ghost">← Back</a>
+        {% endif %}
+        <a href="/documents/generate/{{ scan.id }}" class="btn btn-gold">📄 PDF</a>
+    </div>
+    <div style="position:absolute;right:2.5rem;top:50%;transform:translateY(-50%);font-size:7rem;opacity:.05;pointer-events:none;">{{ ['🟢','🔵','🟡','🔴','🟣'][scan.ai_class_id] if scan.ai_class_id is not none else '🔵' }}</div>
+</div>
+
+<div class="grid-2 fade-in delay-1">
+    <div>
+        <!-- Images -->
+        <div class="card card-glow">
+            <h2>Retinal Evidence</h2>
+            <div class="form-grid">
+                {% if scan.image_url %}<div><div class="section-chip">Fundus Image</div><div class="img-frame"><img src="{{ scan.image_url }}" alt="Fundus"></div></div>{% endif %}
+                {% if scan.gradcam_b64 %}<div><div class="section-chip">Grad-CAM Heatmap</div><div class="img-frame"><img src="data:image/png;base64,{{ scan.gradcam_b64 }}" alt="Grad-CAM"></div></div>{% endif %}
+            </div>
+            <p style="font-size:.73rem;color:var(--text-500);margin-top:.75rem;"><strong style="color:var(--danger);">Red</strong> = high AI attention &nbsp;·&nbsp; <span style="color:var(--info);">Blue</span> = lower influence</p>
+        </div>
+
+        <!-- Probabilities -->
+        <div class="card">
+            <h2>Grade Probabilities</h2>
+            {% set colors=['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+            {% set names=['No DR','Mild','Moderate','Severe','Prolif.'] %}
+            {% for name, prob in probs.items() %}
+            <div class="prob-row {{ 'hl' if loop.index0 == scan.ai_class_id else '' }}">
+                <div class="prob-label">{{ name }}</div>
+                <div class="prob-track"><div class="prob-fill" style="width:{{ prob }}%;background:{{ colors[loop.index0] }};"></div></div>
+                <div class="prob-val">{{ "%.1f"|format(prob) }}%</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        <!-- Risk Score -->
+        {% if scan.risk_score is not none %}
+        {% set rl = scan.risk_level %}
+        {% set rc = '#00c48c' if rl=='Low' else '#f0a030' if rl=='Moderate' else '#f06020' if rl=='High' else '#f04040' %}
+        <div class="card">
+            <h2>Clinical Risk Score</h2>
+            <div class="risk-gauge" style="border-color:{{ rc }}22;">
+                <div class="risk-circle" style="color:{{ rc }};border-color:{{ rc }};box-shadow:0 0 20px {{ rc }}22;">
+                    <div class="risk-num" style="color:{{ rc }};">{{ scan.risk_score }}</div>
+                    <div class="risk-sub">/100</div>
+                </div>
+                <div>
+                    <div style="font-size:1.1rem;font-weight:800;color:{{ rc }};margin-bottom:.4rem;">{{ rl }} Risk</div>
+                    {% for f in risk_factors %}<span class="risk-pill">⚡ {{ f }}</span>{% endfor %}
+                    {% if not risk_factors %}<span style="font-size:.82rem;color:var(--success);font-weight:600;">✅ No major risk factors</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Doctor Review -->
+        {% if scan.status != 'pending' %}
+        <div class="card" style="border-color:rgba(0,196,140,.2);">
+            <h2>Doctor's Review</h2>
+            {% if scan.doctor_class_name %}
+            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;">
+                <span class="badge badge-grade-{{ scan.doctor_class_id }}">{{ scan.doctor_class_id }}</span>
+                <span style="font-weight:700;color:var(--g{{ scan.doctor_class_id }});">{{ scan.doctor_class_name }}</span>
+                <span style="font-size:.72rem;color:var(--text-500);">Final diagnosis</span>
+            </div>
+            {% endif %}
+            {% if scan.doctor_notes %}
+            <div style="margin-bottom:.75rem;">
+                <div style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--text-500);margin-bottom:.35rem;">Clinical Notes</div>
+                <p style="font-size:.85rem;color:var(--text-300);line-height:1.65;">{{ scan.doctor_notes }}</p>
+            </div>
+            {% endif %}
+            {% if scan.treatment %}
+            <div style="margin-bottom:.75rem;">
+                <div style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--text-500);margin-bottom:.35rem;">Treatment Plan</div>
+                <p style="font-size:.85rem;color:var(--text-300);line-height:1.65;white-space:pre-line;">{{ scan.treatment }}</p>
+            </div>
+            {% endif %}
+            {% if scan.followup_weeks %}
+            <div style="background:var(--cyan-halo);border:1px solid rgba(0,229,204,.2);border-radius:var(--r-sm);padding:.6rem .9rem;font-size:.82rem;color:var(--cyan);font-weight:700;">
+                📅 Follow-up in {{ scan.followup_weeks }} weeks
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Patient Clinical Profile -->
+        <div class="card">
+            <h2>Patient Profile</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem .5rem;">
+                {% for label, val in [
+                    ('Diabetes', scan.diabetes_type or '—'),
+                    ('Duration', ((scan.diabetes_duration|int|string+' yrs') if scan.diabetes_duration else '—')),
+                    ('HbA1c', ((scan.hba1c|string+'%') if scan.hba1c else '—')),
+                    ('BP', ((scan.systolic_bp|string+'/'+scan.diastolic_bp|string) if scan.systolic_bp else '—')),
+                    ('Cholesterol', ((scan.cholesterol|string+' mmol/L') if scan.cholesterol else '—')),
+                    ('BMI', scan.bmi or '—'),
+                    ('Smoking', scan.smoking or '—'),
+                    ('Insulin', 'Yes' if scan.insulin_use else 'No'),
+                ] %}
+                <div>
+                    <div style="font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-500);">{{ label }}</div>
+                    <div style="font-size:.85rem;font-weight:600;color:var(--text-200);margin-top:1px;">{{ val }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

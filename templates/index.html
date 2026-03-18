@@ -1,0 +1,565 @@
+{% extends "base.html" %}
+{% block title %}RetinaAI — AI-Powered Diabetic Retinopathy Detection{% endblock %}
+
+{% block extra_styles %}
+main.page-wrap { padding: 0; max-width: 100%; overflow-x: hidden; }
+
+/* ── HERO ──────────────────────────────────────── */
+.hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: var(--obsidian);
+}
+#particleCanvas {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+}
+.hero-grid-overlay {
+    position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background-image:
+        linear-gradient(rgba(0,229,204,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,204,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 20%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 20%, transparent 100%);
+}
+.hero-glow-top {
+    position: absolute; top: -300px; left: 50%;
+    transform: translateX(-50%);
+    width: 900px; height: 600px;
+    background: radial-gradient(ellipse, rgba(0,229,204,0.1) 0%, transparent 65%);
+    z-index: 1; pointer-events: none;
+}
+.hero-inner {
+    position: relative; z-index: 2;
+    max-width: 1200px; margin: 0 auto;
+    padding: 7rem 2.5rem 5rem;
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 5rem;
+    align-items: center;
+    width: 100%;
+}
+@media(max-width: 960px) {
+    .hero-inner { grid-template-columns: 1fr; gap: 3rem; padding: 5rem 1.5rem 4rem; }
+    .hero-right-card { display: none; }
+}
+
+/* Hero copy */
+.hero-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(0,229,204,0.07);
+    border: 1px solid rgba(0,229,204,0.2);
+    border-radius: 100px; padding: 5px 16px;
+    font-size: .68rem; font-weight: 800;
+    color: var(--cyan); letter-spacing: .08em; text-transform: uppercase;
+    margin-bottom: 1.75rem;
+    opacity: 0; animation: fadeUp .6s ease .1s forwards;
+}
+.hero-label-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--cyan); box-shadow: 0 0 10px var(--cyan);
+}
+
+.hero-h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.8rem, 4.8vw, 4.2rem);
+    line-height: 1.05;
+    letter-spacing: -.03em;
+    color: var(--text-100);
+    margin-bottom: 1.5rem;
+}
+.hero-h1 em { color: var(--cyan); font-style: italic; }
+
+/* Animate each line */
+.hero-line { display: block; overflow: hidden; }
+.hero-line > span {
+    display: block;
+    opacity: 0; transform: translateY(110%);
+    animation: liftUp .75s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+.hero-line:nth-child(1) > span { animation-delay: .25s; }
+.hero-line:nth-child(2) > span { animation-delay: .42s; }
+.hero-line:nth-child(3) > span { animation-delay: .59s; }
+@keyframes liftUp { to { opacity: 1; transform: translateY(0); } }
+
+.hero-p {
+    font-size: 1rem; color: var(--text-300); line-height: 1.8;
+    max-width: 500px; margin-bottom: 2.25rem;
+    opacity: 0; animation: fadeUp .7s ease .75s forwards;
+}
+
+.hero-ctas {
+    display: flex; gap: .75rem; flex-wrap: wrap;
+    margin-bottom: 3rem;
+    opacity: 0; animation: fadeUp .6s ease .9s forwards;
+}
+
+.hero-stats {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    overflow: hidden; width: fit-content;
+    opacity: 0; animation: fadeUp .6s ease 1.05s forwards;
+}
+.hero-stat {
+    padding: .8rem 1.4rem;
+    border-right: 1px solid var(--border);
+    text-align: center;
+    background: var(--glass);
+}
+.hero-stat:last-child { border-right: none; }
+.hero-stat-n {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem; color: var(--cyan); line-height: 1;
+}
+.hero-stat-l {
+    font-size: .62rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--text-500); margin-top: 3px;
+}
+
+/* Right card */
+.ai-card {
+    background: var(--surface);
+    border: 1px solid var(--border-md);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,229,204,0.07);
+    opacity: 0; animation: fadeUp .9s ease .6s forwards;
+}
+.ai-card-header {
+    background: var(--deep);
+    padding: .8rem 1.2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+}
+.ai-card-dots { display: flex; gap: 5px; }
+.ai-card-dot  { width: 10px; height: 10px; border-radius: 50%; }
+.ai-card-body { padding: 1.4rem; }
+.eye-placeholder {
+    width: 100%; aspect-ratio: 1.4;
+    background: var(--deep);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 4.5rem;
+    position: relative; overflow: hidden;
+    margin-bottom: 1rem;
+}
+.scan-sweep {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,229,204,.8), transparent);
+    animation: scanLine 2.8s ease-in-out infinite;
+}
+.result-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .55rem 0; border-bottom: 1px solid var(--border);
+    font-size: .8rem;
+}
+.result-row:last-child { border-bottom: none; padding-bottom: 0; }
+.result-row-label { color: var(--text-400); font-weight: 600; }
+.result-row-val   { font-weight: 800; }
+
+/* ── SECTIONS ──────────────────────────────────── */
+.section {
+    max-width: 1200px; margin: 0 auto;
+    padding: 5rem 2.5rem;
+}
+.s-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+.section-tag {
+    font-size: .66rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .12em; color: var(--cyan); margin-bottom: .6rem;
+}
+.section-h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+    color: var(--text-100); letter-spacing: -.025em;
+    line-height: 1.15; margin-bottom: .75rem;
+}
+.section-p {
+    font-size: .95rem; color: var(--text-300);
+    line-height: 1.8; max-width: 500px;
+}
+
+/* ── FEATURES GRID ─────────────────────────────── */
+.feat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0; margin-top: 3rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl); overflow: hidden;
+}
+@media(max-width:768px) { .feat-grid { grid-template-columns: 1fr; } }
+.feat-cell {
+    padding: 2rem;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    transition: var(--ease);
+    position: relative;
+}
+.feat-cell:nth-child(3n) { border-right: none; }
+.feat-cell:nth-last-child(-n+3) { border-bottom: none; }
+@media(max-width:768px) {
+    .feat-cell { border-right: none; }
+    .feat-cell:last-child { border-bottom: none; }
+}
+.feat-cell:hover { background: var(--elevated); }
+.feat-cell:hover::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+}
+.feat-icon  { font-size: 1.6rem; margin-bottom: .85rem; display: block; }
+.feat-title { font-family: 'DM Serif Display', serif; font-size: 1rem; color: var(--text-100); margin-bottom: .4rem; }
+.feat-desc  { font-size: .8rem; color: var(--text-400); line-height: 1.7; }
+
+/* ── UPLOAD ZONE ───────────────────────────────── */
+.upload-zone {
+    border: 2px dashed rgba(0,229,204,0.2);
+    border-radius: var(--r-2xl);
+    padding: 4rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s ease;
+    background: radial-gradient(ellipse 50% 60% at 50% 100%, rgba(0,229,204,.04) 0%, transparent 70%);
+    position: relative; overflow: hidden;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--cyan);
+    background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(0,229,204,.09) 0%, transparent 70%);
+    box-shadow: 0 0 80px rgba(0,229,204,.07), inset 0 0 60px rgba(0,229,204,.03);
+}
+.upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+}
+.upload-icon {
+    font-size: 3rem; display: block; margin-bottom: 1rem;
+    transition: transform .35s cubic-bezier(0.34,1.56,0.64,1);
+}
+.upload-zone:hover .upload-icon { transform: scale(1.15) translateY(-6px); }
+
+/* ── GRADES ────────────────────────────────────── */
+.grade-row {
+    display: flex; align-items: center; gap: 1rem;
+    padding: .85rem 1rem; border-radius: var(--r-md);
+    border: 1px solid transparent; transition: var(--ease); cursor: default;
+}
+.grade-row:hover { background: var(--glass); border-color: var(--border); }
+.grade-bubble {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .78rem; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace; flex-shrink: 0;
+}
+.grade-bar-wrap { flex: 1; height: 4px; background: var(--deep); border-radius: 2px; overflow: hidden; }
+.grade-bar-fill { height: 100%; border-radius: 2px; }
+{% endblock %}
+
+{% block content %}
+
+<!-- ════════════ HERO ════════════ -->
+<section class="hero">
+    <canvas id="particleCanvas"></canvas>
+    <div class="hero-grid-overlay"></div>
+    <div class="hero-glow-top"></div>
+
+    <div class="hero-inner">
+        <!-- Left: copy -->
+        <div>
+            <div class="hero-label">
+                <span class="hero-label-dot"></span>
+                EfficientNetB0 · Grad-CAM · Clinical AI
+            </div>
+
+            <h1 class="hero-h1">
+                <span class="hero-line"><span>Detect Diabetic</span></span>
+                <span class="hero-line"><span>Retinopathy with</span></span>
+                <span class="hero-line"><span><em>AI Precision</em></span></span>
+            </h1>
+
+            <p class="hero-p">
+                Upload a retinal fundus photo and receive instant AI classification across 5 DR severity grades, Grad-CAM visual explainability, and a composite clinical risk score.
+            </p>
+
+            <div class="hero-ctas">
+                {% if current_user %}
+                    <a href="/scan/new" class="btn btn-lg">🔬 Analyze a Scan</a>
+                    <a href="{{ '/doctor' if current_user.role == 'doctor' else '/dashboard' }}" class="btn btn-ghost btn-lg">Go to Dashboard →</a>
+                {% else %}
+                    <a href="/register" class="btn btn-lg">Get Started Free →</a>
+                    <a href="/login" class="btn btn-ghost btn-lg">Sign In</a>
+                {% endif %}
+            </div>
+
+            <div class="hero-stats">
+                <div class="hero-stat"><div class="hero-stat-n">5</div><div class="hero-stat-l">DR Grades</div></div>
+                <div class="hero-stat"><div class="hero-stat-n">&lt;2s</div><div class="hero-stat-l">Analysis</div></div>
+                <div class="hero-stat"><div class="hero-stat-n">100%</div><div class="hero-stat-l">Explainable</div></div>
+                <div class="hero-stat"><div class="hero-stat-n">B0</div><div class="hero-stat-l">EfficientNet</div></div>
+            </div>
+        </div>
+
+        <!-- Right: AI result card -->
+        <div class="hero-right-card">
+            <div class="ai-card">
+                <div class="ai-card-header">
+                    <div class="ai-card-dots">
+                        <div class="ai-card-dot" style="background:#f04040;"></div>
+                        <div class="ai-card-dot" style="background:#f0a030;"></div>
+                        <div class="ai-card-dot" style="background:#00c48c;"></div>
+                    </div>
+                    <span style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--text-500);">RetinaAI · Scan #0042</span>
+                    <span style="font-size:.68rem;color:var(--success);font-weight:800;">● Live</span>
+                </div>
+                <div class="ai-card-body">
+                    <div class="eye-placeholder">
+                        <span style="z-index:1;position:relative;">👁️</span>
+                        <div class="scan-sweep"></div>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-row-label">AI Grade</span>
+                        <span class="result-row-val" style="color:var(--g0);">No DR — Grade 0</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-row-label">Confidence</span>
+                        <span class="result-row-val" style="color:var(--cyan);">94.7%</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-row-label">Risk Score</span>
+                        <span class="result-row-val" style="color:var(--g0);">18 / 100 Low</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-row-label">Grad-CAM</span>
+                        <span class="result-row-val" style="color:var(--text-200);">✓ Generated</span>
+                    </div>
+                    <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border);">
+                        <div style="font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-500);margin-bottom:.5rem;">Grade Probabilities</div>
+                        {% for label, pct, gc in [('No DR',94,'#00c48c'),('Mild',4,'#4d9fff'),('Moderate',1,'#f0a030'),('Severe',1,'#f04040'),('Prolif.',0,'#b060f0')] %}
+                        <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.3rem;">
+                            <span style="width:58px;font-size:.68rem;color:var(--text-400);flex-shrink:0;">{{ label }}</span>
+                            <div style="flex:1;height:4px;background:var(--deep);border-radius:2px;overflow:hidden;">
+                                <div style="height:100%;width:{{ pct }}%;background:{{ gc }};border-radius:2px;"></div>
+                            </div>
+                            <span style="width:26px;text-align:right;font-size:.68rem;font-weight:800;color:{{ gc }};">{{ pct }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<hr class="s-divider">
+
+<!-- ════════════ QUICK TRY ════════════ -->
+<div class="section">
+    <div style="text-align:center;margin-bottom:2.5rem;" class="fade-in">
+        <div class="section-tag">Quick Analysis</div>
+        <div class="section-h2">Try the AI — No Account Needed</div>
+        <p class="section-p" style="margin:0 auto 0;">Upload a fundus photo for instant AI classification with Grad-CAM explainability.</p>
+    </div>
+
+    <div class="upload-zone fade-in delay-2" id="uploadZone">
+        <form id="tryForm" method="POST" action="/scan/new" enctype="multipart/form-data">
+            <input type="file" name="file" id="tryFile" accept=".png,.jpg,.jpeg,.bmp,.tiff">
+        </form>
+        <span class="upload-icon">🔬</span>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--text-100);margin-bottom:.3rem;">Drop a fundus image here</div>
+        <p style="font-size:.85rem;color:var(--text-400);margin-bottom:1.5rem;">PNG · JPG · BMP · TIFF &nbsp;·&nbsp; Max 16 MB</p>
+        <a href="/scan/new" class="btn btn-lg" style="pointer-events:auto;position:relative;z-index:2;">Choose File &amp; Analyze →</a>
+    </div>
+    <div id="filePreview" style="display:none;margin-top:1rem;background:rgba(0,196,140,.07);border:1px solid rgba(0,196,140,.2);border-radius:var(--r-md);padding:1rem 1.25rem;">
+        <div style="display:flex;align-items:center;gap:1rem;">
+            <img id="previewThumb" src="" alt="" style="width:68px;height:68px;object-fit:cover;border-radius:var(--r-sm);border:1px solid var(--border);flex-shrink:0;">
+            <div style="flex:1;min-width:0;">
+                <div id="previewName" style="font-weight:700;font-size:.88rem;color:var(--text-100);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                <div id="previewSize" style="font-size:.74rem;color:var(--text-400);margin-top:2px;"></div>
+                <div style="font-size:.72rem;color:var(--success);font-weight:700;margin-top:4px;">✓ Ready to analyze</div>
+            </div>
+            <a href="/scan/new" class="btn btn-lg" style="flex-shrink:0;">Analyze Now →</a>
+        </div>
+    </div>
+    {% if not current_user %}
+    <p style="text-align:center;font-size:.8rem;color:var(--text-500);margin-top:1rem;">
+        <a href="/register" style="color:var(--cyan);font-weight:700;text-decoration:none;">Create a free account</a> to save results, get risk scores, and doctor review.
+    </p>
+    {% endif %}
+</div>
+
+<hr class="s-divider">
+
+<!-- ════════════ FEATURES ════════════ -->
+<div class="section">
+    <div style="text-align:center;" class="fade-in">
+        <div class="section-tag">Platform Capabilities</div>
+        <div class="section-h2">Clinical AI, <em style="font-style:italic;color:var(--cyan);">Explained</em></div>
+        <p class="section-p" style="margin:0 auto 0;">Transparent, evidence-based predictions with visual proof for every diagnosis.</p>
+    </div>
+    <div class="feat-grid fade-in delay-2">
+        {% for icon, title, desc in [
+            ('🧠','EfficientNetB0','State-of-the-art CNN trained on graded fundus images, classifying DR into 5 severity levels in under 2 seconds.'),
+            ('🔥','Grad-CAM Heatmaps','Gradient-weighted activation maps overlay the exact retinal regions that drove each AI prediction.'),
+            ('📊','Risk Scoring','HbA1c, blood pressure, BMI and diabetes duration combine with AI grade into a 0–100 composite clinical risk score.'),
+            ('👨‍⚕️','Doctor Validation','Specialists review, confirm or override AI predictions and add clinical notes and treatment plans.'),
+            ('📄','PDF Reports','One-click automated reports include fundus image, heatmap, grade probabilities, risk factors and recommendations.'),
+            ('🔒','Secure Records','Full scan history, progression tracking, document management, and appointment scheduling in one platform.'),
+        ] %}
+        <div class="feat-cell">
+            <span class="feat-icon">{{ icon }}</span>
+            <div class="feat-title">{{ title }}</div>
+            <div class="feat-desc">{{ desc }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<hr class="s-divider">
+
+<!-- ════════════ DR SCALE ════════════ -->
+<div class="section">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:5rem;align-items:center;">
+        <div class="fade-in">
+            <div class="section-tag">ETDRS Classification</div>
+            <div class="section-h2">5-Stage DR<br>Grading System</div>
+            <p class="section-p">The International Clinical DR Disease Severity Scale defines five grades from no apparent retinopathy to proliferative disease requiring urgent treatment.</p>
+            <div style="margin-top:2rem;display:flex;gap:.75rem;flex-wrap:wrap;">
+                {% if current_user %}
+                <a href="/scan/new" class="btn">Upload a Scan →</a>
+                {% else %}
+                <a href="/register" class="btn">Start Screening →</a>
+                {% endif %}
+                <a href="/about" class="btn btn-ghost">Learn More</a>
+            </div>
+        </div>
+        <div class="fade-in delay-2">
+            {% for gid, gc, name, desc, pct in [
+                (0,'#00c48c','No DR','No visible retinal lesions',20),
+                (1,'#4d9fff','Mild NPDR','Microaneurysms only',40),
+                (2,'#f0a030','Moderate NPDR','Haemorrhages and exudates',60),
+                (3,'#f04040','Severe NPDR','4-2-1 rule criteria',80),
+                (4,'#b060f0','Proliferative DR','Neovascularization · urgent',100),
+            ] %}
+            <div class="grade-row">
+                <div class="grade-bubble" style="background:{{ gc }}18;color:{{ gc }};border:1px solid {{ gc }}30;">{{ gid }}</div>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:.84rem;font-weight:700;color:{{ gc }};">{{ name }}</div>
+                    <div style="font-size:.72rem;color:var(--text-500);margin-top:1px;">{{ desc }}</div>
+                </div>
+                <div style="width:90px;flex-shrink:0;">
+                    <div class="grade-bar-wrap"><div class="grade-bar-fill" style="width:{{ pct }}%;background:{{ gc }};opacity:.7;"></div></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- ════════════ CLINICAL WORKFLOW ════════════ -->
+<hr class="s-divider">
+<div class="section">
+    <div style="text-align:center;margin-bottom:4rem;" class="fade-in">
+        <div class="section-tag">Patient Journey</div>
+        <div class="section-h2">Seamless Clinical Workflow</div>
+        <p class="section-p" style="margin:0 auto;">From initial screening to expert medical validation, RetinaAI bridges the gap between AI innovation and clinical care.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:2rem;" class="fade-in delay-2">
+        <!-- Step 1 -->
+        <div style="text-align:center;">
+            <div style="width:80px;height:80px;border-radius:50%;background:var(--cyan-halo);border:1px solid rgba(0,229,204,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:2rem;box-shadow:0 0 40px rgba(0,229,204,.1);">📤</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--text-100);margin-bottom:.75rem;">1. Image Capture</div>
+            <p style="font-size:.88rem;color:var(--text-400);line-height:1.6;">Patient or technician uploads a high-resolution retinal fundus photograph to the platform.</p>
+        </div>
+        
+        <!-- Step 2 -->
+        <div style="text-align:center;position:relative;">
+            <div style="position:absolute;top:40px;left:-40px;right:-40px;height:2px;background:linear-gradient(90deg, transparent, var(--border), transparent);z-index:0;" class="hide-mobile"></div>
+            <div style="width:80px;height:80px;border-radius:50%;background:var(--cyan-halo);border:1px solid rgba(0,229,204,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:2rem;position:relative;z-index:1;box-shadow:0 0 40px rgba(0,229,204,.1);">🧠</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--text-100);margin-bottom:.75rem;">2. AI Diagnostics</div>
+            <p style="font-size:.88rem;color:var(--text-400);line-height:1.6;">EfficientNetB0 architecture analyzes the scan, providing severity grading and Grad-CAM interpretability.</p>
+        </div>
+
+        <!-- Step 3 -->
+        <div style="text-align:center;">
+            <div style="width:80px;height:80px;border-radius:50%;background:var(--cyan-halo);border:1px solid rgba(0,229,204,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:2rem;box-shadow:0 0 40px rgba(0,229,204,.1);">📋</div>
+            <div style="font-family:'DM Serif Display',serif;font-size:1.25rem;color:var(--text-100);margin-bottom:.75rem;">3. Expert Review</div>
+            <p style="font-size:.88rem;color:var(--text-400);line-height:1.6;">A specialized ophthalmologist reviews the AI results, confirm findings, and establishes a treatment plan.</p>
+        </div>
+    </div>
+    
+    <div style="margin-top:4rem;text-align:center;" class="fade-in delay-3">
+        <a href="/register" class="btn btn-lg">Start the Workflow Now →</a>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* ── Particle canvas ── */
+(function(){
+    const c = document.getElementById('particleCanvas');
+    if(!c) return;
+    const x = c.getContext('2d');
+    let W, H;
+    const resize = ()=>{ W=c.width=window.innerWidth; H=c.height=c.closest('.hero').offsetHeight||window.innerHeight; };
+    resize();
+    window.addEventListener('resize', resize);
+    const pts = Array.from({length:55},()=>({
+        x:Math.random()*1400, y:Math.random()*900,
+        vx:(Math.random()-.5)*.22, vy:(Math.random()-.5)*.22,
+        r:Math.random()*1.4+.5, a:Math.random()*.35+.08
+    }));
+    (function draw(){
+        x.clearRect(0,0,W,H);
+        pts.forEach(p=>{
+            p.x+=p.vx; p.y+=p.vy;
+            if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+            if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+            x.beginPath(); x.arc(p.x,p.y,p.r,0,Math.PI*2);
+            x.fillStyle=`rgba(0,229,204,${p.a})`; x.fill();
+        });
+        for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+            const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+            if(d<120){ x.beginPath(); x.moveTo(pts[i].x,pts[i].y); x.lineTo(pts[j].x,pts[j].y);
+                x.strokeStyle=`rgba(0,229,204,${(1-d/120)*0.06})`; x.lineWidth=.5; x.stroke(); }
+        }
+        requestAnimationFrame(draw);
+    })();
+})();
+
+/* ── File upload preview ── */
+const tryFile = document.getElementById('tryFile');
+if(tryFile) tryFile.addEventListener('change', function(){
+    if(!this.files.length) return;
+    const f = this.files[0];
+    document.getElementById('previewName').textContent = f.name;
+    document.getElementById('previewSize').textContent = (f.size/1024).toFixed(1)+' KB';
+    document.getElementById('filePreview').style.display = 'block';
+    const rd = new FileReader();
+    rd.onload = e => document.getElementById('previewThumb').src = e.target.result;
+    rd.readAsDataURL(f);
+});
+const zone = document.getElementById('uploadZone');
+if(zone){
+    zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()=>zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag-over'); });
+}
+
+/* ── Scroll fade-in ── */
+const observer = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.style.animationPlayState='running'; observer.unobserve(e.target); }});
+},{threshold:0.08});
+document.querySelectorAll('.fade-in').forEach(el=>{
+    if(!el.closest('.hero')){ el.style.animationPlayState='paused'; observer.observe(el); }
+});
+</script>
+{% endblock %}

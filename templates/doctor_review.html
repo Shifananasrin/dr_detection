@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Review Scan #{{ scan.id }} — RetinaAI{% endblock %}
+{% block extra_styles %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set gcolor = gc[scan.ai_class_id] if scan.ai_class_id is not none else '#4d9fff' %}
+.review-layout { display:grid; grid-template-columns:1fr 380px; gap:1.5rem; align-items:start; }
+@media(max-width:1060px) { .review-layout { grid-template-columns:1fr; } }
+.prob-row { display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--border); }
+.prob-row:last-child { border:none; }
+.prob-label { width:110px;font-size:.8rem;font-weight:600;flex-shrink:0;color:var(--text-300); }
+.prob-track { flex:1;height:6px;background:var(--deep);border-radius:3px;overflow:hidden; }
+.prob-fill  { height:100%;border-radius:3px; }
+.prob-val   { width:42px;text-align:right;font-size:.78rem;font-weight:700;color:var(--text-400); }
+.prob-row.hl .prob-label { color:{{ gcolor }};font-weight:800; }
+.prob-row.hl .prob-val   { color:{{ gcolor }}; }
+.cls-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem; }
+.cls-opt input { display:none; }
+.cls-lbl { display:flex;flex-direction:column;align-items:center;gap:3px;padding:.6rem .3rem;border:1.5px solid var(--border);border-radius:var(--r-sm);cursor:pointer;transition:var(--ease);font-size:.72rem;font-weight:700;color:var(--text-400);text-align:center;background:var(--deep); }
+.cls-lbl:hover { background:var(--glass); border-color:var(--border-md); color:var(--text-200); }
+.cls-opt input:checked + .cls-lbl { border-color:var(--cyan); background:var(--cyan-halo); color:var(--cyan); }
+.qtag { display:inline-flex;align-items:center;background:var(--glass);border:1px solid var(--border);border-radius:100px;padding:2px 9px;font-size:.7rem;cursor:pointer;color:var(--text-300);transition:var(--ease);font-weight:600;margin:2px; }
+.qtag:hover { background:var(--glass-md);border-color:var(--border-md);color:var(--text-100); }
+{% endblock %}
+{% block content %}
+{% set gc = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+{% set gcolor = gc[scan.ai_class_id] if scan.ai_class_id is not none else '#4d9fff' %}
+{% set short = ['No DR','Mild','Mod.','Severe','Prolif.'] %}
+
+<!-- Header -->
+<div style="background:linear-gradient(135deg,#064e3b,#065f46 60%,#0d8a79);border-radius:var(--r-xl);padding:1.75rem 2.25rem;margin-bottom:1.75rem;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;" class="fade-in">
+    <div style="position:relative;z-index:1;">
+        <div style="font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(0,229,204,.8);margin-bottom:.4rem;">🏥 Clinical Review</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:1.85rem;color:#fff;letter-spacing:-.02em;margin-bottom:.25rem;">Review Scan #{{ scan.id }}</div>
+        <p style="color:rgba(255,255,255,.65);font-size:.82rem;">Patient: <strong style="color:#fff;">{{ scan.patient_name }}</strong> &nbsp;·&nbsp; {{ scan.uploaded_at[:10] if scan.uploaded_at else '—' }} &nbsp;·&nbsp; <span style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:100px;padding:2px 9px;font-size:.68rem;font-weight:700;">{{ scan.status }}</span></p>
+    </div>
+    <div style="position:relative;z-index:1;display:flex;gap:.5rem;flex-wrap:wrap;">
+        <a href="/doctor/patient/{{ scan.patient_id }}" class="btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);font-size:.8rem;">👤 History</a>
+        <a href="/doctor" class="btn" style="background:#fff;color:#065f46;font-size:.8rem;">← Dashboard</a>
+    </div>
+    <div style="position:absolute;right:2rem;top:50%;transform:translateY(-50%);font-size:6rem;opacity:.07;pointer-events:none;">🏥</div>
+</div>
+
+{% if scan.status != 'pending' %}<div class="alert alert-info fade-in"><span class="alert-icon">ℹ️</span><div>Already reviewed — update below if needed.</div></div>{% endif %}
+
+<div class="review-layout fade-in delay-1">
+    <!-- AI Evidence -->
+    <div>
+        <!-- AI Diagnosis -->
+        <div style="background:{{ gcolor }}0c;border:1px solid {{ gcolor }}22;border-left:5px solid {{ gcolor }};border-radius:var(--r-lg);padding:1.5rem 2rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1.75rem;flex-wrap:wrap;">
+            <div>
+                <div style="font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:{{ gcolor }};margin-bottom:.35rem;">🤖 AI Grade {{ scan.ai_class_id if scan.ai_class_id is not none else '?' }}</div>
+                <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:{{ gcolor }};line-height:1;">{{ scan.ai_class_name or 'Unknown' }}</div>
+            </div>
+            <div style="border-left:1px solid {{ gcolor }}22;padding-left:1.5rem;">
+                <div style="font-family:'DM Serif Display',serif;font-size:2rem;color:{{ gcolor }};">{{ "%.1f"|format(scan.ai_confidence) }}%</div>
+                <div style="font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;color:{{ gcolor }};opacity:.7;">Confidence</div>
+            </div>
+            <div style="flex:1;max-width:180px;border-left:1px solid {{ gcolor }}22;padding-left:1.5rem;">
+                <div class="progress-bar" style="height:8px;margin-bottom:.3rem;">
+                    <div class="progress-fill" style="width:{{ scan.ai_confidence }}%;background:{{ gcolor }};"></div>
+                </div>
+                <div style="font-size:.68rem;color:var(--text-500);">Model confidence</div>
+            </div>
+        </div>
+
+        <!-- Images -->
+        <div class="card card-glow">
+            <h2>Retinal Evidence</h2>
+            <div class="form-grid">
+                {% if scan.image_url %}<div><div class="section-chip">Original Fundus</div><div class="img-frame"><img src="{{ scan.image_url }}" alt="Fundus"></div></div>{% endif %}
+                {% if scan.gradcam_b64 %}<div><div class="section-chip">Grad-CAM</div><div class="img-frame"><img src="data:image/png;base64,{{ scan.gradcam_b64 }}" alt="Grad-CAM"></div></div>{% endif %}
+            </div>
+            <p style="font-size:.72rem;color:var(--text-500);margin-top:.75rem;"><strong style="color:var(--danger);">Red</strong> = high influence &nbsp;·&nbsp; <span style="color:var(--info);">Blue</span> = low influence</p>
+        </div>
+
+        <!-- Probabilities -->
+        <div class="card">
+            <h2>Grade Probabilities</h2>
+            {% set colors=['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+            {% for name, prob in probs.items() %}
+            <div class="prob-row {{ 'hl' if loop.index0 == scan.ai_class_id else '' }}">
+                <div class="prob-label">{{ name }}</div>
+                <div class="prob-track"><div class="prob-fill" style="width:{{ prob }}%;background:{{ colors[loop.index0] }};"></div></div>
+                <div class="prob-val">{{ "%.1f"|format(prob) }}%</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Risk -->
+        {% if scan.risk_score is not none %}
+        {% set rl = scan.risk_level %}
+        {% set rc = '#00c48c' if rl=='Low' else '#f0a030' if rl=='Moderate' else '#f06020' if rl=='High' else '#f04040' %}
+        <div class="card">
+            <h2>Risk Score</h2>
+            <div class="risk-gauge" style="border-color:{{ rc }}22;">
+                <div class="risk-circle" style="color:{{ rc }};border-color:{{ rc }};box-shadow:0 0 16px {{ rc }}22;">
+                    <div class="risk-num" style="color:{{ rc }};">{{ scan.risk_score }}</div>
+                    <div class="risk-sub">/100</div>
+                </div>
+                <div>
+                    <div style="font-size:1rem;font-weight:800;color:{{ rc }};margin-bottom:.4rem;">{{ rl }} Risk</div>
+                    {% for f in risk_factors %}<span class="risk-pill">⚡ {{ f }}</span>{% endfor %}
+                    {% if not risk_factors %}<span style="font-size:.8rem;color:var(--success);font-weight:600;">✅ No major risk factors</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Patient Profile -->
+        <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;">
+                <h2 style="margin-bottom:0;">Patient Profile</h2>
+                <a href="/doctor/patient/{{ scan.patient_id }}" class="btn btn-ghost" style="font-size:.74rem;padding:4px 10px;">Full History →</a>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem .4rem;">
+                {% for label, val in [
+                    ('Diabetes', scan.diabetes_type or '—'),
+                    ('Duration', ((scan.diabetes_duration|int|string+' yrs') if scan.diabetes_duration else '—')),
+                    ('HbA1c', ((scan.hba1c|string+'%') if scan.hba1c else '—')),
+                    ('BP', ((scan.systolic_bp|string+'/'+scan.diastolic_bp|string) if scan.systolic_bp else '—')),
+                    ('Cholesterol', (scan.cholesterol|string+' mmol/L') if scan.cholesterol else '—'),
+                    ('BMI', scan.bmi or '—'),
+                    ('Smoking', scan.smoking or '—'),
+                    ('Insulin', 'Yes' if scan.insulin_use else 'No'),
+                ] %}
+                <div>
+                    <div style="font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--text-500);">{{ label }}</div>
+                    <div style="font-size:.85rem;font-weight:600;color:var(--text-200);margin-top:1px;">{{ val }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if progression != '[]' %}
+        <div class="card"><h2>Progression Chart</h2><canvas id="progChart" height="100"></canvas></div>
+        {% endif %}
+    </div>
+
+    <!-- Review Form -->
+    <div style="position:sticky;top:76px;">
+        <div class="card" style="border-top:3px solid var(--cyan);">
+            <h2>Clinical Review</h2>
+            <form method="POST" action="/doctor/scan/{{ scan.id }}">
+                <div class="form-group">
+                    <label>Final Diagnosis</label>
+                    {% set colors=['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'] %}
+                    <div class="cls-grid">
+                        {% for name in class_names %}
+                        {% set i = loop.index0 %}
+                        <div class="cls-opt">
+                            <input type="radio" name="doctor_class_id" value="{{ i }}" id="cls{{ i }}"
+                                   {{ 'checked' if i == (scan.doctor_class_id if scan.doctor_class_id is not none else scan.ai_class_id) else '' }}>
+                            <label class="cls-lbl" for="cls{{ i }}">
+                                <div style="width:9px;height:9px;border-radius:50%;background:{{ colors[i] }};box-shadow:0 0 5px {{ colors[i] }};"></div>
+                                <span style="color:{{ colors[i] }};">{{ short[i] }}</span>
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Review Status</label>
+                    <select name="status" class="form-control">
+                        <option value="approved" {{ 'selected' if scan.status=='approved' }}>✅ Approved — AI correct</option>
+                        <option value="modified" {{ 'selected' if scan.status=='modified' }}>✏️ Modified — changed diagnosis</option>
+                        <option value="reviewed" {{ 'selected' if scan.status=='reviewed' }}>👁 Reviewed — pending tests</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Clinical Notes</label>
+                    <textarea name="doctor_notes" class="form-control" rows="3" placeholder="Observations, findings, context…">{{ scan.doctor_notes or '' }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Treatment Plan</label>
+                    <textarea name="treatment" class="form-control" rows="3" placeholder="Laser, injections, lifestyle, referrals…">{{ scan.treatment or '' }}</textarea>
+                    <div style="margin-top:.4rem;font-size:.66rem;color:var(--text-500);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem;">Quick add:</div>
+                    <div>{% for q in ['Annual follow-up','Anti-VEGF','PRP laser','Focal laser','Optimize HbA1c','BP control','Ophthalmology referral','Vitrectomy eval'] %}<span class="qtag" onclick="addTx('{{ q }}')">+ {{ q }}</span>{% endfor %}</div>
+                </div>
+                <div class="form-group">
+                    <label>Follow-up</label>
+                    <select name="followup_weeks" class="form-control">
+                        <option value="">No follow-up set</option>
+                        {% for w in [4,8,12,24,52] %}<option value="{{ w }}" {{ 'selected' if scan.followup_weeks == w }}>{{ w }} weeks ({{ (w/4)|int }} month{{ 's' if w != 4 }})</option>{% endfor %}
+                    </select>
+                </div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                    <button type="submit" class="btn" style="flex:1;justify-content:center;">✅ Submit Review</button>
+                    <a href="/doctor" class="btn btn-ghost">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+(function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+  s.onload = function(){ if(window._chartReady) window._chartReady(); };
+  s.onerror = function(){ console.warn('Chart.js CDN unavailable'); };
+  document.head.appendChild(s);
+})();
+</script>
+<script>
+function addTx(t) { const ta = document.querySelector('[name=treatment]'); ta.value = ta.value ? ta.value+'\n• '+t : '• '+t; ta.focus(); }
+window._chartReady = function() {
+
+const prog = {{ progression|safe }};
+const GC = ['#00c48c','#4d9fff','#f0a030','#f04040','#b060f0'];
+const GN = ['No DR','Mild','Moderate','Severe','Prolif.'];
+if (prog.length > 1) {
+    const TIP = {backgroundColor:'#1a2440',titleColor:'#f0f4ff',bodyColor:'#8a9bb8',borderColor:'rgba(255,255,255,0.1)',borderWidth:1};
+    new Chart(document.getElementById('progChart'), {
+        type:'line', data:{labels:prog.map(p=>p.date),datasets:[{data:prog.map(p=>p.grade),borderColor:'#00e5cc',backgroundColor:'rgba(0,229,204,.06)',pointBackgroundColor:prog.map(p=>GC[p.grade]||'#4d9fff'),pointBorderColor:'#0a0f1e',pointBorderWidth:2,pointRadius:5,fill:true,tension:.3}]},
+        options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:TIP},scales:{y:{min:0,max:4,ticks:{stepSize:1,callback:v=>GN[v]||'',color:'#5a6e8a',font:{size:9}},grid:{color:'rgba(255,255,255,0.05)'}},x:{ticks:{color:'#5a6e8a',font:{size:9}},grid:{display:false}}}}
+    });
+}
+
+};
+// If Chart.js already loaded (cached), call immediately
+if(typeof Chart !== "undefined") window._chartReady();
+</script>
+{% endblock %}
