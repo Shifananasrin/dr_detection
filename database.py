@@ -372,10 +372,18 @@ def save_doctor_review(scan_id, doctor_id, data: dict):
         data.get("followup_weeks"), scan_id
     ))
 
-    # Get patient_id for notification
+    # Get patient_id for notification (inline to avoid second-connection lock)
     scan = conn.execute("SELECT patient_id FROM scans WHERE id=?", (scan_id,)).fetchone()
     if scan:
-        add_notification(scan["patient_id"], f"Your scan #{scan_id} has been reviewed by a doctor.")
+        msg = f"Your scan #{scan_id} has been reviewed by a doctor."
+        existing = conn.execute(
+            "SELECT id FROM notifications WHERE user_id=? AND message=? AND is_read=0",
+            (scan["patient_id"], msg)
+        ).fetchone()
+        if existing:
+            conn.execute("UPDATE notifications SET created_at=datetime('now') WHERE id=?", (existing[0],))
+        else:
+            conn.execute("INSERT INTO notifications (user_id, message) VALUES (?, ?)", (scan["patient_id"], msg))
 
     conn.commit()
     conn.close()
@@ -539,10 +547,17 @@ def book_appointment(patient_id, data: dict):
     ))
     appt_id = cur.lastrowid
 
-    # Notify the assigned doctor
+    # Notify the assigned doctor (inline to avoid second-connection lock)
     if data.get("doctor_id"):
-        add_notification(data["doctor_id"], 
-                         f"New appointment #{appt_id} booked for {data['appointment_date']} at {data['appointment_time']}")
+        msg = f"New appointment #{appt_id} booked for {data['appointment_date']} at {data['appointment_time']}"
+        existing = conn.execute(
+            "SELECT id FROM notifications WHERE user_id=? AND message=? AND is_read=0",
+            (data["doctor_id"], msg)
+        ).fetchone()
+        if existing:
+            conn.execute("UPDATE notifications SET created_at=datetime('now') WHERE id=?", (existing[0],))
+        else:
+            conn.execute("INSERT INTO notifications (user_id, message) VALUES (?, ?)", (data["doctor_id"], msg))
     conn.commit()
     conn.close()
     return appt_id
@@ -556,10 +571,18 @@ def update_appointment(appt_id, data: dict):
         WHERE id=?
     """, (data.get("status"), data.get("doctor_notes", ""), appt_id))
 
-    # Notify patient on status change
+    # Notify patient on status change (inline to avoid second-connection lock)
     appt = conn.execute("SELECT patient_id, status FROM appointments WHERE id=?", (appt_id,)).fetchone()
     if appt:
-        add_notification(appt["patient_id"], f"Appointment #{appt_id} status updated to: {data.get('status')}")
+        msg = f"Appointment #{appt_id} status updated to: {data.get('status')}"
+        existing = conn.execute(
+            "SELECT id FROM notifications WHERE user_id=? AND message=? AND is_read=0",
+            (appt["patient_id"], msg)
+        ).fetchone()
+        if existing:
+            conn.execute("UPDATE notifications SET created_at=datetime('now') WHERE id=?", (existing[0],))
+        else:
+            conn.execute("INSERT INTO notifications (user_id, message) VALUES (?, ?)", (appt["patient_id"], msg))
     conn.commit()
     conn.close()
 
