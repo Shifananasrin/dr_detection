@@ -33,6 +33,7 @@
         <a href="/doctor/scan/{{ scan.id }}" class="btn">✓ Review</a>
         <a href="/doctor" class="btn btn-ghost">← Back</a>
         {% else %}
+        <a href="/scan/new" class="btn btn-ghost">🔬 New Scan</a>
         <a href="/dashboard" class="btn btn-ghost">← Back</a>
         {% endif %}
         <a href="/documents/generate/{{ scan.id }}" class="btn btn-gold">📄 PDF</a>
